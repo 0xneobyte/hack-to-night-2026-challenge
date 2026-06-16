@@ -1,28 +1,54 @@
+# use with docker compose up --build --watch
+
 services:
-  # Node.js service (use with: docker compose up htn-26-challenge --build)
-  htn26-challenge:
+  htn26-challenge-dev:
     build:
       context: .
       dockerfile: Dockerfile
-    image: htn-26-challenge-image
-    container_name: htn-26-challenge-container
+    container_name: htn-26-challenge-dev-container
+    env_file:
+      - .env.local
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "3000"
     ports:
       - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - node_modules/
+            - .next/
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: bun.lock
+
+  db:
+    image: postgres:17-alpine
+    container_name: htn-26-challenge-db
+    env_file:
+      - .env.local
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
-  # Bun service (use with: docker compose up htn-26-challenge-with-bun --build)
-  htn26-challenge-with-bun:
-    build:
-      context: .
-      dockerfile: Dockerfile.bun
-    image: htn-26-challenge-bun-image
-    container_name: htn-26-challenge-bun-container
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
+volumes:
+  postgres_data:
