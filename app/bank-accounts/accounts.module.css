@@ -65,7 +65,7 @@
 }
 
 /* ===== GLOBAL STYLES ===== */
-.accounts-page {
+.accountsPage {
   width: 100vw;
   min-height: 100vh;
   background: var(--color-background);
@@ -83,7 +83,7 @@
 }
 
 /* ===== HEADER ===== */
-.content-header {
+.contentHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -91,19 +91,19 @@
   gap: var(--spacing-lg);
 }
 
-.page-title {
+.pageTitle {
   font-size: var(--font-4xl);
   font-weight: 700;
   color: var(--color-black);
 }
 
-.header-actions {
+.headerActions {
   display: flex;
   align-items: center;
   gap: var(--spacing-xl);
 }
 
-.avatar-placeholder {
+.avatarPlaceholder {
   width: var(--avatar-size);
   height: var(--avatar-size);
   border-radius: var(--radius-full);
@@ -114,14 +114,14 @@
   justify-content: center;
 }
 
-.avatar-placeholder img {
+.avatarPlaceholder img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
 /* ===== CARDS CONTAINER ===== */
-.cards-container {
+.cardsContainer {
   margin-top: var(--spacing-3xl);
   display: flex;
   flex-direction: column;
@@ -130,7 +130,7 @@
 }
 
 /* ===== ACCOUNT CARD ===== */
-.account-card {
+.accountCard {
   width: var(--card-width);
   max-width: 100%;
   height: var(--card-height);
@@ -142,13 +142,13 @@
   transition: var(--transition-default);
 }
 
-.account-card:hover {
+.accountCard:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 12px -1px var(--color-shadow);
 }
 
-.icon-edit,
-.icon-delete {
+.iconEdit,
+.iconDelete {
   position: absolute;
   font-size: var(--font-xl);
   cursor: pointer;
@@ -158,29 +158,29 @@
   line-height: 1;
 }
 
-.icon-edit {
+.iconEdit {
   left: var(--spacing-lg);
   top: var(--spacing-lg);
   color: var(--color-black);
 }
 
-.icon-edit:hover {
+.iconEdit:hover {
   background: var(--color-hover-bg);
   transform: scale(1.1);
 }
 
-.icon-delete {
+.iconDelete {
   right: var(--spacing-lg);
   bottom: var(--spacing-lg);
   color: var(--color-black);
 }
 
-.icon-delete:hover {
+.iconDelete:hover {
   background: var(--color-delete-hover);
   transform: scale(1.1);
 }
 
-.account-card-content {
+.accountCardContent {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -189,14 +189,14 @@
   padding: var(--spacing-lg);
 }
 
-.account-name {
+.accountName {
   font-weight: 700;
   font-size: var(--font-xl);
   margin: 0;
   color: var(--color-black);
 }
 
-.account-avatar {
+.accountAvatar {
   width: 100px;
   height: 100px;
   border-radius: var(--radius-full);
@@ -207,13 +207,13 @@
   justify-content: center;
 }
 
-.account-avatar img {
+.accountAvatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.account-details {
+.accountDetails {
   font-size: var(--font-sm);
   margin-top: var(--spacing-sm);
   color: var(--color-black);
@@ -222,7 +222,7 @@
 }
 
 /* ===== ADD ACCOUNT CARD ===== */
-.add-account-card {
+.addAccountCard {
   width: var(--card-width);
   max-width: 100%;
   height: 170px;
@@ -239,37 +239,37 @@
   font-family: inherit;
 }
 
-.add-account-card:hover {
+.addAccountCard:hover {
   transform: scale(1.02);
   box-shadow: 0 10px 15px -3px var(--color-shadow-hover);
 }
 
-.add-account-card:active {
+.addAccountCard:active {
   transform: scale(0.98);
 }
 
-.add-account-title {
+.addAccountTitle {
   font-weight: 600;
   font-size: var(--font-xl);
   margin-bottom: var(--spacing-xl);
   color: var(--color-black);
 }
 
-.add-account-icon {
+.addAccountIcon {
   font-size: var(--font-4xl);
   font-weight: 300;
   color: var(--color-black);
 }
 
 /* ===== FORM CONTAINER ===== */
-.form-container {
+.formContainer {
   margin-top: var(--spacing-2xl);
   display: flex;
   justify-content: center;
   align-items: flex-start;
 }
 
-.form-card {
+.formCard {
   width: var(--form-width);
   max-width: 100%;
   background: var(--color-white);
@@ -278,40 +278,40 @@
   padding: var(--spacing-2xl);
 }
 
-.form-header {
+.formHeader {
   margin-bottom: var(--spacing-2xl);
   padding-bottom: var(--spacing-lg);
   border-bottom: 2px solid var(--color-border-light);
 }
 
-.form-title {
+.formTitle {
   font-size: var(--font-3xl);
   font-weight: 600;
   color: var(--color-black);
   margin: 0;
 }
 
-.form-fields {
+.formFields {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xl);
 }
 
 /* ===== FORM GROUP ===== */
-.form-group {
+.formGroup {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
   position: relative;
 }
 
-.form-group label {
+.formGroup label {
   font-weight: 500;
   font-size: var(--font-md);
   color: var(--color-text);
 }
 
-.form-group input {
+.formGroup input {
   padding: var(--spacing-md) var(--spacing-lg);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -323,37 +323,37 @@
   color: var(--color-text);
 }
 
-.form-group input:focus {
+.formGroup input:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
-.form-group input::placeholder {
+.formGroup input::placeholder {
   color: var(--color-text-muted);
 }
 
-.input-disabled {
+.inputDisabled {
   background: var(--color-hover-bg);
   color: var(--color-text-light);
   cursor: not-allowed;
 }
 
-.input-disabled:focus {
+.inputDisabled:focus {
   border-color: var(--color-border);
   box-shadow: none;
 }
 
 /* ===== VALIDATION STYLES ===== */
-.input-error {
+.inputError {
   border-color: var(--color-error) !important;
 }
 
-.input-error:focus {
+.inputError:focus {
   border-color: var(--color-error) !important;
   box-shadow: 0 0 0 3px var(--color-error-light) !important;
 }
 
-.field-error {
+.fieldError {
   color: var(--color-error);
   font-size: var(--font-sm);
   margin-top: var(--spacing-xs);
@@ -373,7 +373,7 @@
 }
 
 /* ===== FORM ACTIONS ===== */
-.form-actions-bottom {
+.formActionsBottom {
   display: flex;
   gap: var(--spacing-md);
   margin-top: var(--spacing-xl);
@@ -383,9 +383,9 @@
   flex-wrap: wrap;
 }
 
-.btn-cancel,
-.btn-add,
-.btn-update {
+.btnCancel,
+.btnAdd,
+.btnUpdate {
   padding: 0.7rem var(--spacing-2xl);
   border: none;
   border-radius: var(--radius-lg);
@@ -396,43 +396,43 @@
   min-width: 120px;
 }
 
-.btn-cancel {
+.btnCancel {
   background: var(--color-border);
   color: var(--color-text);
 }
 
-.btn-cancel:hover {
+.btnCancel:hover {
   background: #d1d5db;
   transform: scale(1.02);
 }
 
-.btn-add {
+.btnAdd {
   background: var(--color-primary);
   color: var(--color-white);
 }
 
-.btn-add:hover {
+.btnAdd:hover {
   background: var(--color-primary-hover);
   transform: scale(1.02);
   box-shadow: 0 4px 6px -1px rgba(69, 0, 67, 0.3);
 }
 
-.btn-add:active {
+.btnAdd:active {
   transform: scale(0.98);
 }
 
-.btn-update {
+.btnUpdate {
   background: var(--color-secondary);
   color: var(--color-white);
 }
 
-.btn-update:hover {
+.btnUpdate:hover {
   background: var(--color-secondary-hover);
   transform: scale(1.02);
   box-shadow: 0 4px 6px -1px var(--color-secondary-light);
 }
 
-.btn-update:active {
+.btnUpdate:active {
   transform: scale(0.98);
 }
 
@@ -448,7 +448,7 @@
     --font-3xl: 20px;
   }
   
-  .accounts-page {
+  .accountsPage {
     flex-direction: column;
   }
   
@@ -456,18 +456,18 @@
     padding: var(--spacing-lg);
   }
   
-  .form-card {
+  .formCard {
     padding: var(--spacing-xl);
   }
   
-  .form-actions-bottom {
+  .formActionsBottom {
     flex-direction: column;
     gap: var(--spacing-sm);
   }
   
-  .btn-cancel,
-  .btn-add,
-  .btn-update {
+  .btnCancel,
+  .btnAdd,
+  .btnUpdate {
     width: 100%;
     text-align: center;
     padding: 0.6rem;
@@ -489,42 +489,42 @@
     padding: var(--spacing-lg);
   }
   
-  .content-header {
+  .contentHeader {
     gap: var(--spacing-md);
   }
   
-  .header-actions {
+  .headerActions {
     gap: var(--spacing-md);
   }
   
-  .account-card {
+  .accountCard {
     height: var(--card-height);
   }
   
-  .add-account-card {
+  .addAccountCard {
     height: 140px;
   }
   
-  .account-avatar {
+  .accountAvatar {
     width: 60px;
     height: 60px;
   }
   
-  .form-card {
+  .formCard {
     padding: var(--spacing-lg);
   }
   
-  .form-group input {
+  .formGroup input {
     padding: 0.6rem 0.75rem;
     font-size: var(--font-sm);
   }
   
-  .field-error {
+  .fieldError {
     font-size: var(--font-xs);
   }
   
-  .icon-edit,
-  .icon-delete {
+  .iconEdit,
+  .iconDelete {
     font-size: var(--font-lg);
     padding: 2px;
   }
@@ -538,26 +538,26 @@
     --font-md: 12px;
   }
   
-  .account-avatar {
+  .accountAvatar {
     width: 50px;
     height: 50px;
   }
   
-  .add-account-icon {
+  .addAccountIcon {
     font-size: var(--font-3xl);
   }
   
-  .form-card {
+  .formCard {
     padding: var(--spacing-md);
   }
   
-  .form-title {
+  .formTitle {
     font-size: var(--font-lg);
   }
   
-  .btn-cancel,
-  .btn-add,
-  .btn-update {
+  .btnCancel,
+  .btnAdd,
+  .btnUpdate {
     font-size: var(--font-sm);
     padding: 0.5rem;
   }
@@ -571,54 +571,12 @@
     --form-width: 700px;
   }
   
-  .cards-container {
+  .cardsContainer {
     gap: var(--spacing-3xl);
   }
   
-  .account-avatar {
+  .accountAvatar {
     width: 120px;
     height: 120px;
-  }
-}
-
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #1a1a1a;
-    --color-white: #2d2d2d;
-    --color-black: #ffffff;
-    --color-text: #e5e5e5;
-    --color-text-light: #b0b0b0;
-    --color-text-muted: #888888;
-    --color-border: #404040;
-    --color-border-light: #333333;
-    --color-shadow: rgba(0, 0, 0, 0.3);
-    --color-shadow-hover: rgba(0, 0, 0, 0.5);
-    --color-hover-bg: #3d3d3d;
-    --color-avatar-bg: #4a5568;
-  }
-  
-  .account-card,
-  .add-account-card,
-  .form-card {
-    border-color: #404040;
-  }
-  
-  .account-card:hover {
-    border-color: var(--color-secondary);
-  }
-  
-  .input-disabled {
-    background: #3d3d3d;
-    color: #888888;
-  }
-  
-  .btn-cancel {
-    background: #404040;
-    color: #e5e5e5;
-  }
-  
-  .btn-cancel:hover {
-    background: #505050;
   }
 }
