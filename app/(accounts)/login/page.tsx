@@ -69,7 +69,7 @@ export default function LoginPage() {
 
           <div className="mt-3 text-right">
             <Link
-              href="/accounts/reset-password"
+              href="/reset-password"
               className="text-sm font-bold text-black"
             >
               Forgot password?
@@ -81,10 +81,7 @@ export default function LoginPage() {
           <p className="mt-6 text-sm font-bold text-black">
             Don`t have an account?
           </p>
-          <Link
-            href="/accounts/sign-up"
-            className="text-2xl font-bold text-black"
-          >
+          <Link href="/sign-up" className="text-2xl font-bold text-black">
             SIGN UP
           </Link>
         </div>
