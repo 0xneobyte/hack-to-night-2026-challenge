@@ -220,14 +220,14 @@ The backend API and frontend UI are two completely separate, non-working halves.
 
 ---
 
-### F2. No Route Protection — All Pages Accessible Without Login
+### F2. No Route Protection — Root Page Skips Login, All Pages Accessible Without Auth
 
-**Files:** No `middleware.ts` exists  
-**Impact:** Any user can access dashboard, accounts, transfers without authenticating
+**Files:** `app/page.tsx`, no `middleware.ts` exists  
+**Impact:** Any user can access every page without authenticating — there is no login gate
 
-There is no middleware or route guard. Every page is publicly accessible. The sidebar navigation works without any login.
+The root URL (`/`) shows a "Smart Spend" landing page with direct links to Accounts, Bank Transfer, Pay Bills, etc. — **it does not redirect to `/login`**. There is no `middleware.ts` or any route guard anywhere. A user opening the app for the first time goes straight to banking features without ever seeing a login screen. The login page exists at `/login` but nothing forces users through it.
 
-**Fix direction:** Add `middleware.ts` that checks for a valid session cookie and redirects unauthenticated users to `/login`.
+**Fix direction:** Add `middleware.ts` that checks for a valid session cookie and redirects unauthenticated users to `/login`. Change the root `/` to redirect to `/login` (or `/dashboard` if authenticated).
 
 ---
 
