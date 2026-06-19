@@ -208,7 +208,7 @@ export default function SettingsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col p-4 md:p-6 gap-6 max-w-2xl">
+        <div className="flex flex-1 flex-col p-4 md:p-6 gap-6 max-w-2xl mx-auto w-full">
           <div>
             <h1 className="text-2xl font-bold">Settings</h1>
             <p className="text-sm text-muted-foreground">
