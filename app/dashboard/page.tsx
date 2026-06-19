@@ -1,27 +1,80 @@
 'use client'
 
-import Sidebar from '../../components/sidebar'
+import { useEffect, useState } from 'react'
+import type { ProfileWithEmail } from '@/lib/types'
 import { Bell, ChevronRight, Search } from '../../components/Icons'
+import Sidebar from '../../components/sidebar'
 
-const transactions = [
-  {
-    date: 'Oct, 16 2025',
-    account: '......3423',
-    amount: '-Rs. 4500.00'
-  },
-  {
-    date: 'Oct, 16 2025',
-    account: '......4876',
-    amount: '-Rs. 10,000.00'
-  },
-  {
-    date: 'Oct, 16 2025',
-    account: '......6754',
-    amount: '-Rs. 9870.00'
-  }
-]
+interface AccountRow {
+  id: number
+  account_number: string
+  account_name: string
+  balance: number
+  created_at: string
+}
+
+interface TransactionRow {
+  id: number
+  from_account: string
+  to_account: string
+  amount: number
+  description: string | null
+  status: string
+  created_at: string
+}
+
+function formatCurrency(amount: number) {
+  return `Rs. ${amount.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+function maskAccount(num: string) {
+  return `......${num.slice(-4)}`
+}
 
 export default function Dashboard() {
+  const [profile, setProfile] = useState<ProfileWithEmail | null>(null)
+  const [accounts, setAccounts] = useState<AccountRow[]>([])
+  const [transactions, setTransactions] = useState<TransactionRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      const [profileRes, accountsRes, txRes] = await Promise.all([
+        fetch('/api/profile'),
+        fetch('/api/accounts'),
+        fetch('/api/transactions?limit=5')
+      ])
+
+      if (profileRes.ok) {
+        const json = await profileRes.json()
+        if (json.ok) setProfile(json.data.profile)
+      }
+      if (accountsRes.ok) {
+        const json = await accountsRes.json()
+        if (json.ok) setAccounts(json.data.accounts)
+      }
+      if (txRes.ok) {
+        const json = await txRes.json()
+        if (json.ok) setTransactions(json.data.transactions)
+      }
+
+      setLoading(false)
+    }
+
+    loadData()
+  }, [])
+
+  const primaryAccount = accounts[0]
+  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0)
+
   return (
     <main className="dashboard">
       <Sidebar />
@@ -37,66 +90,101 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Top Section */}
-        <div className="top-section">
-          <div className="welcome-card">
-            <h2 className="welcome-title">Welcome back, Dilara!</h2>
-            <div className="balance-card">
-              <p className="balance-label">Current Balance</p>
-              <p className="balance-amount">Rs. 100, 000</p>
-              <ChevronRight className="balance-chevron" size={30} />
-            </div>
-            <div className="carousel-dots">
-              <span className="dot active" />
-              <span className="dot" />
-              <span className="dot" />
-            </div>
-            <img
-              src="/dashboard-logo.png"
-              alt="woman"
-              className="welcome-image"
-            />
-          </div>
-
-          <div className="payees-card">
-            <h3 className="payees-title">Saved Payees</h3>
-            <div className="payees-list">
-              {[1, 2].map((item) => (
-                <div key={item} className="payee-item">
-                  <img src="/person-logo.png" alt="user" className="avatar" />
-                  <div className="payee-info">
-                    <p>HKDS</p>
-                    <p>Wickramanayake</p>
-                  </div>
+        {loading ? (
+          <div className="loading-state">Loading your data…</div>
+        ) : (
+          <>
+            {/* Top Section */}
+            <div className="top-section">
+              <div className="welcome-card">
+                <h2 className="welcome-title">
+                  Welcome back, {profile?.full_name?.split(' ')[0] ?? 'there'}!
+                </h2>
+                <div className="balance-card">
+                  <p className="balance-label">Current Balance</p>
+                  <p className="balance-amount">
+                    {primaryAccount
+                      ? formatCurrency(primaryAccount.balance)
+                      : totalBalance > 0
+                        ? formatCurrency(totalBalance)
+                        : 'Rs. 0.00'}
+                  </p>
+                  <ChevronRight className="balance-chevron" size={30} />
                 </div>
-              ))}
-            </div>
-            <div className="view-all">
-              View all
-              <ChevronRight size={15} />
-            </div>
-          </div>
-        </div>
-
-        {/* Transactions */}
-        <div className="transactions-section">
-          <h2 className="transactions-title">Recent Transactions</h2>
-          <div className="transactions-card">
-            {transactions.map((t, index) => (
-              <div key={index} className="transaction-item">
-                <img src="/person-logo.png" alt="user" className="avatar" />
-                <span className="transaction-date">{t.date}</span>
-                <span className="transaction-account">{t.account}</span>
-                <span className="transaction-amount">{t.amount}</span>
-                <span className="transaction-status">Success</span>
+                <div className="carousel-dots">
+                  <span className="dot active" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
+                <img
+                  src="/dashboard-logo.png"
+                  alt="woman"
+                  className="welcome-image"
+                />
               </div>
-            ))}
-            <div className="view-all">
-              View all
-              <ChevronRight size={15} />
+
+              <div className="payees-card">
+                <h3 className="payees-title">My Accounts</h3>
+                <div className="payees-list">
+                  {accounts.slice(0, 2).map((acc) => (
+                    <div key={acc.id} className="payee-item">
+                      <img
+                        src="/person-logo.png"
+                        alt="account"
+                        className="avatar"
+                      />
+                      <div className="payee-info">
+                        <p>{acc.account_name}</p>
+                        <p>{maskAccount(acc.account_number)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {accounts.length === 0 && (
+                    <p className="no-data">No accounts yet</p>
+                  )}
+                </div>
+                <div className="view-all">
+                  View all
+                  <ChevronRight size={15} />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+
+            {/* Transactions */}
+            <div className="transactions-section">
+              <h2 className="transactions-title">Recent Transactions</h2>
+              <div className="transactions-card">
+                {transactions.length === 0 ? (
+                  <p className="no-data">No transactions yet</p>
+                ) : (
+                  transactions.map((t) => (
+                    <div key={t.id} className="transaction-item">
+                      <img
+                        src="/person-logo.png"
+                        alt="user"
+                        className="avatar"
+                      />
+                      <span className="transaction-date">
+                        {formatDate(t.created_at)}
+                      </span>
+                      <span className="transaction-account">
+                        {maskAccount(t.to_account)}
+                      </span>
+                      <span className="transaction-amount">
+                        -{formatCurrency(t.amount)}
+                      </span>
+                      <span className="transaction-status">{t.status}</span>
+                    </div>
+                  ))
+                )}
+                <div className="view-all">
+                  View all
+                  <ChevronRight size={15} />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       <style jsx>{`
@@ -142,6 +230,20 @@ export default function Dashboard() {
           height: 45px;
           border-radius: 50%;
           object-fit: cover;
+        }
+
+        .loading-state {
+          margin-top: 3rem;
+          text-align: center;
+          color: #6b7280;
+          font-size: 1.1rem;
+        }
+
+        .no-data {
+          color: #9ca3af;
+          font-size: 0.9rem;
+          text-align: center;
+          padding: 0.5rem 0;
         }
 
         .top-section {
@@ -298,7 +400,6 @@ export default function Dashboard() {
           box-shadow: 18px 18px 12px rgba(0, 0, 0, 0.15);
           padding: 1.25rem;
           width: 1000px;
-          height: 200px;
           max-width: 100%;
           overflow-x: auto;
         }
