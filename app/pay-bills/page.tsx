@@ -93,12 +93,13 @@ export default function PayBillsPage() {
     setError('')
     setLoading(true)
 
-    const res = await fetch('/api/transfer', {
+    const res = await fetch('/api/pay-bill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fromAccount,
-        toAccount: billId,
+        billerId: selectedBiller?.id,
+        billRef: billId,
         amount: Number(dueAmount),
         description: `Bill payment: ${selectedBiller?.name}${remarks ? ' - ' + remarks : ''}`
       })
