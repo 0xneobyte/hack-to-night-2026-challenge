@@ -67,6 +67,47 @@ export interface TransferRpcResult {
   balance?: number
 }
 
+/**
+ * A QR payment request. The requester generates a `code` (encoded in the QR);
+ * a payer scans it and settles it. `amount === null` is an open-amount
+ * "personal" QR where the payer chooses the amount; a non-null `amount` with an
+ * `expires_at` is a one-off "temp" QR.
+ */
+export type PaymentRequestStatus = 'OPEN' | 'PAID' | 'EXPIRED' | 'CANCELLED'
+
+export interface PaymentRequest {
+  id: number
+  code: string
+  requester_id: string
+  to_account: string
+  amount: number | null
+  description: string | null
+  status: PaymentRequestStatus
+  expires_at: string | null
+  created_at: string
+}
+
+export type PaymentSplitStatus = 'PENDING' | 'PAID'
+
+/** One participant's percentage share of a group (split-bill) payment. */
+export interface PaymentSplit {
+  id: number
+  request_id: number
+  host_id: string
+  participant_id: string
+  percentage: number
+  amount: number
+  status: PaymentSplitStatus
+  transaction_id: number | null
+  created_at: string
+}
+
+/** Input shape for a single participant when creating a group split. */
+export interface SplitParticipantInput {
+  username: string
+  percentage: number
+}
+
 export interface SearchResult {
   type: 'account' | 'transaction'
   id: string
