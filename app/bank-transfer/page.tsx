@@ -36,11 +36,16 @@ function formatCurrency(n: number) {
   return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
 }
 
+type SendMode = 'account' | 'username'
+
 export default function BankTransferPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [fromAccount, setFromAccount] = useState('')
   const [amount, setAmount] = useState('')
   const [toAccount, setToAccount] = useState('')
+  const [toUsername, setToUsername] = useState('')
+  const [sendMode, setSendMode] = useState<SendMode>('username')
+  const [resolvedAccount, setResolvedAccount] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const [step, setStep] = useState<Step>('form')
@@ -63,24 +68,46 @@ export default function BankTransferPage() {
 
   const selected = accounts.find((a) => a.account_number === fromAccount)
 
-  function handleNext(e: React.FormEvent) {
+  async function handleNext(e: React.FormEvent) {
     e.preventDefault()
-    if (!fromAccount || !toAccount || !amount || Number(amount) <= 0) {
+
+    const recipient =
+      sendMode === 'username' ? toUsername.trim() : toAccount.trim()
+    if (!fromAccount || !recipient || !amount || Number(amount) <= 0) {
       setError('Please fill all required fields with valid values')
       return
     }
+
+    if (sendMode === 'username') {
+      setLoading(true)
+      const res = await fetch(
+        `/api/resolve-username?username=${encodeURIComponent(recipient)}`
+      )
+      const json = await res.json()
+      setLoading(false)
+
+      if (!json.ok || !json.account_number) {
+        setError(json.message || 'Username not found')
+        return
+      }
+      setResolvedAccount(json.account_number)
+    } else {
+      setResolvedAccount(recipient)
+    }
+
     setError('')
     setStep('confirm')
   }
 
   async function handleTransfer() {
+    const destination = resolvedAccount || toAccount
     setLoading(true)
     const res = await fetch('/api/transfer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fromAccount,
-        toAccount,
+        toAccount: destination,
         amount: Number(amount),
         description
       })
@@ -101,6 +128,8 @@ export default function BankTransferPage() {
   function reset() {
     setAmount('')
     setToAccount('')
+    setToUsername('')
+    setResolvedAccount(null)
     setDescription('')
     setError('')
     setTxId(null)
@@ -153,13 +182,44 @@ export default function BankTransferPage() {
                       </Select>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>To Account Number</Label>
-                      <Input
-                        value={toAccount}
-                        onChange={(e) => setToAccount(e.target.value)}
-                        placeholder="Recipient account number"
-                        required
-                      />
+                      <Label>Send to</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            sendMode === 'username' ? 'default' : 'outline'
+                          }
+                          onClick={() => setSendMode('username')}
+                        >
+                          Username
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            sendMode === 'account' ? 'default' : 'outline'
+                          }
+                          onClick={() => setSendMode('account')}
+                        >
+                          Account Number
+                        </Button>
+                      </div>
+                      {sendMode === 'username' ? (
+                        <Input
+                          value={toUsername}
+                          onChange={(e) => setToUsername(e.target.value)}
+                          placeholder="e.g. johndoe"
+                          required
+                        />
+                      ) : (
+                        <Input
+                          value={toAccount}
+                          onChange={(e) => setToAccount(e.target.value)}
+                          placeholder="Recipient account number"
+                          required
+                        />
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label>Amount</Label>
@@ -183,8 +243,8 @@ export default function BankTransferPage() {
                     {error && (
                       <p className="text-sm text-destructive">{error}</p>
                     )}
-                    <Button type="submit" className="mt-2">
-                      Next
+                    <Button type="submit" className="mt-2" disabled={loading}>
+                      {loading ? 'Resolving...' : 'Next'}
                     </Button>
                   </form>
                 </CardContent>
@@ -206,8 +266,20 @@ export default function BankTransferPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">To</span>
-                      <span className="font-medium">{toAccount}</span>
+                      <span className="font-medium">
+                        {sendMode === 'username'
+                          ? `@${toUsername}`
+                          : resolvedAccount}
+                      </span>
                     </div>
+                    {sendMode === 'username' && resolvedAccount && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Account</span>
+                        <span className="text-xs text-muted-foreground">
+                          {resolvedAccount}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Amount</span>
                       <span className="font-semibold">
