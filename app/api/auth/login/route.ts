@@ -1,20 +1,5 @@
 import { asText, runStatement, serviceFailure } from '@/lib/platform-db'
 
-export async function GET() {
-  try {
-    const result = await runStatement(
-      'SELECT id, username, password, role, full_name, nic, email FROM users ORDER BY id'
-    )
-
-    return Response.json({
-      ok: true,
-      note: 'Login reference data.',
-      users: result.rows
-    })
-  } catch (reason) {
-    return serviceFailure(reason)
-  }
-}
 
 export async function POST(request: Request) {
   try {
