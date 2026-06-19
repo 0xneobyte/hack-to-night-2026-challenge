@@ -27,7 +27,8 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem
+  SidebarMenuItem,
+  SidebarSeparator
 } from '@/components/ui/sidebar'
 import { createClient } from '@/lib/supabase/client'
 
@@ -63,24 +64,40 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     .slice(0, 2)
     .toUpperCase()
 
-  const navMain = [
-    { title: 'Dashboard', url: '/dashboard', icon: <LayoutDashboardIcon /> },
-    { title: 'Accounts', url: '/bank-accounts', icon: <WalletIcon /> },
+  const navGroups = [
     {
-      title: 'Send',
-      url: '/bank-transfer',
-      icon: <SendIcon />
+      label: 'Overview',
+      items: [
+        { title: 'Dashboard', url: '/dashboard', icon: <LayoutDashboardIcon /> }
+      ]
     },
-    { title: 'Pay Bills', url: '/pay-bills', icon: <ReceiptIcon /> },
-    { title: 'QR Pay', url: '/qr-pay', icon: <QrCodeIcon /> },
-    { title: 'Transactions', url: '/transactions', icon: <HistoryIcon /> },
-    { title: 'Smart Spend', url: '/smart-spend', icon: <PieChartIcon /> },
     {
-      title: 'Utility Predictor',
-      url: '/utility-predictor',
-      icon: <ZapIcon />
+      label: 'Payments',
+      items: [
+        { title: 'Send Money', url: '/bank-transfer', icon: <SendIcon /> },
+        { title: 'Pay Bills', url: '/pay-bills', icon: <ReceiptIcon /> },
+        { title: 'QR Pay', url: '/qr-pay', icon: <QrCodeIcon /> }
+      ]
     },
-    { title: 'E-Statement', url: '/e-statement', icon: <FileTextIcon /> }
+    {
+      label: 'Activity',
+      items: [
+        { title: 'Accounts', url: '/bank-accounts', icon: <WalletIcon /> },
+        { title: 'Transactions', url: '/transactions', icon: <HistoryIcon /> },
+        { title: 'E-Statement', url: '/e-statement', icon: <FileTextIcon /> }
+      ]
+    },
+    {
+      label: 'Insights',
+      items: [
+        { title: 'Smart Spend', url: '/smart-spend', icon: <PieChartIcon /> },
+        {
+          title: 'Utility Predictor',
+          url: '/utility-predictor',
+          icon: <ZapIcon />
+        }
+      ]
+    }
   ]
 
   const navSecondary = [
@@ -106,7 +123,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
+        <NavMain groups={navGroups} />
+        <SidebarSeparator className="mx-0" />
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
