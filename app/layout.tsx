@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
-import { Poppins, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 import { cn } from '@/lib/utils'
 
-const poppins = Poppins({
+const geistSans = Geist({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-sans'
 })
 
@@ -30,7 +29,7 @@ export default function RootLayout({
       lang="en"
       className={cn(
         'h-full antialiased',
-        poppins.variable,
+        geistSans.variable,
         geistMono.variable,
         'font-sans'
       )}
