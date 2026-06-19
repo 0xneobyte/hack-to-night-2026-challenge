@@ -1,12 +1,16 @@
-FROM oven/bun:1
+FROM node:24-alpine
 
 WORKDIR /app
 
-COPY package.json bun.lock* ./
+COPY package.json package-lock.json* ./
 
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+RUN npm ci
+
+COPY . .
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
 EXPOSE 3000
 
-CMD ["bun", "run", "dev"]
+CMD ["npm", "run", "dev"]
