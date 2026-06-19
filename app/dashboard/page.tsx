@@ -1,25 +1,25 @@
-"use client";
+'use client'
 
-import Sidebar from "../../components/sidebar";
-import { Bell, ChevronRight, Search } from "../../components/Icons";
+import Sidebar from '../../components/sidebar'
+import { Bell, ChevronRight, Search } from '../../components/Icons'
 
 const transactions = [
   {
-    date: "Oct, 16 2025",
-    account: "......3423",
-    amount: "-Rs. 4500.00",
+    date: 'Oct, 16 2025',
+    account: '......3423',
+    amount: '-Rs. 4500.00'
   },
   {
-    date: "Oct, 16 2025",
-    account: "......4876",
-    amount: "-Rs. 10,000.00",
+    date: 'Oct, 16 2025',
+    account: '......4876',
+    amount: '-Rs. 10,000.00'
   },
   {
-    date: "Oct, 16 2025",
-    account: "......6754",
-    amount: "-Rs. 9870.00",
-  },
-];
+    date: 'Oct, 16 2025',
+    account: '......6754',
+    amount: '-Rs. 9870.00'
+  }
+]
 
 export default function Dashboard() {
   return (
@@ -51,7 +51,11 @@ export default function Dashboard() {
               <span className="dot" />
               <span className="dot" />
             </div>
-            <img src="/dashboard-logo.png" alt="woman" className="welcome-image" />
+            <img
+              src="/dashboard-logo.png"
+              alt="woman"
+              className="welcome-image"
+            />
           </div>
 
           <div className="payees-card">
@@ -431,5 +435,5 @@ export default function Dashboard() {
         }
       `}</style>
     </main>
-  );
+  )
 }

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "next": "16.2.9",
+    "pg": "^8.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -18,6 +19,7 @@
     "@biomejs/biome": "2.4.16",
     "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^20.19.43",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "lefthook": "^2.1.9",

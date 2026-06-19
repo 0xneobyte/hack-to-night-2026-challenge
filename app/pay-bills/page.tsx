@@ -1,118 +1,120 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import Image from "next/image";
-import Sidebar from "../../components/sidebar";
+import { useState } from 'react'
+import Image from 'next/image'
+import Sidebar from '../../components/sidebar'
 import {
   Search,
   Settings,
   CheckCircle2,
   AlertTriangle,
-  ChevronLeft,
-} from "../../components/Icons";
+  ChevronLeft
+} from '../../components/Icons'
 
 type Biller = {
-  id: string;
-  name: string;
-  logo: string;
-};
+  id: string
+  name: string
+  logo: string
+}
 
 const billers: Biller[] = [
-  { id: "water", name: "Water Board", logo: "/billers/water-board.png" },
-  { id: "cable", name: "Cable TV", logo: "/billers/cable-tv.png" },
-  { id: "ceb", name: "CEB", logo: "/billers/ceb.png" },
-  { id: "airtel", name: "Airtel", logo: "/billers/airtel.png" },
-  { id: "dialog", name: "Dialog", logo: "/billers/dialog.png" },
-  { id: "slt", name: "Sri Lanka Telecom", logo: "/billers/electricity.png" },
-  { id: "peotv", name: "PEO TV", logo: "/billers/mpesa.png" },
-  { id: "hutch", name: "Hutch", logo: "/billers/hutch.png" },
-  { id: "aia", name: "AIA", logo: "/billers/aia.png" },
-  { id: "lolc", name: "LOLC", logo: "/billers/lolc.png" },
-  { id: "insurance2", name: "Insurance", logo: "/billers/insurance2.png" },
-  { id: "hsbc", name: "HSBC", logo: "/billers/hsbc.png" },
-];
+  { id: 'water', name: 'Water Board', logo: '/billers/water-board.png' },
+  { id: 'cable', name: 'Cable TV', logo: '/billers/cable-tv.png' },
+  { id: 'ceb', name: 'CEB', logo: '/billers/ceb.png' },
+  { id: 'airtel', name: 'Airtel', logo: '/billers/airtel.png' },
+  { id: 'dialog', name: 'Dialog', logo: '/billers/dialog.png' },
+  { id: 'slt', name: 'Sri Lanka Telecom', logo: '/billers/electricity.png' },
+  { id: 'peotv', name: 'PEO TV', logo: '/billers/mpesa.png' },
+  { id: 'hutch', name: 'Hutch', logo: '/billers/hutch.png' },
+  { id: 'aia', name: 'AIA', logo: '/billers/aia.png' },
+  { id: 'lolc', name: 'LOLC', logo: '/billers/lolc.png' },
+  { id: 'insurance2', name: 'Insurance', logo: '/billers/insurance2.png' },
+  { id: 'hsbc', name: 'HSBC', logo: '/billers/hsbc.png' }
+]
 
-type Screen = "select" | "form" | "success" | "failed";
+type Screen = 'select' | 'form' | 'success' | 'failed'
 
-const MOCK_BALANCE = 5000;
+const MOCK_BALANCE = 5000
 
 type FormErrors = {
-  accountNumber?: string;
-  billId?: string;
-  dueAmount?: string;
-};
+  accountNumber?: string
+  billId?: string
+  dueAmount?: string
+}
 
 export default function PayBillsPage() {
-  const [screen, setScreen] = useState<Screen>("select");
-  const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
-  const [accountNumber, setAccountNumber] = useState("");
-  const [billId, setBillId] = useState("");
-  const [dueAmount, setDueAmount] = useState("");
-  const [remarks, setRemarks] = useState("");
-  const [confirmationNumber, setConfirmationNumber] = useState("");
-  const [failReason, setFailReason] = useState("");
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [screen, setScreen] = useState<Screen>('select')
+  const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null)
+  const [accountNumber, setAccountNumber] = useState('')
+  const [billId, setBillId] = useState('')
+  const [dueAmount, setDueAmount] = useState('')
+  const [remarks, setRemarks] = useState('')
+  const [confirmationNumber, setConfirmationNumber] = useState('')
+  const [failReason, setFailReason] = useState('')
+  const [errors, setErrors] = useState<FormErrors>({})
 
   function handleSelectBiller(biller: Biller) {
-    setSelectedBiller(biller);
-    setErrors({});
-    setScreen("form");
+    setSelectedBiller(biller)
+    setErrors({})
+    setScreen('form')
   }
 
   function validateForm(): boolean {
-    const newErrors: FormErrors = {};
+    const newErrors: FormErrors = {}
 
     if (!accountNumber.trim()) {
-      newErrors.accountNumber = "Account number is required";
+      newErrors.accountNumber = 'Account number is required'
     } else if (!/^[0-9]{6,16}$/.test(accountNumber.trim())) {
-      newErrors.accountNumber = "Enter a valid account number (6–16 digits)";
+      newErrors.accountNumber = 'Enter a valid account number (6–16 digits)'
     }
 
     if (!billId.trim()) {
-      newErrors.billId = "Bill ID is required";
+      newErrors.billId = 'Bill ID is required'
     } else if (billId.trim().length < 3) {
-      newErrors.billId = "Bill ID looks too short";
+      newErrors.billId = 'Bill ID looks too short'
     }
 
     if (!dueAmount.trim()) {
-      newErrors.dueAmount = "Due amount is required";
+      newErrors.dueAmount = 'Due amount is required'
     } else {
-      const amount = Number(dueAmount);
+      const amount = Number(dueAmount)
       if (Number.isNaN(amount) || amount <= 0) {
-        newErrors.dueAmount = "Enter a valid amount greater than 0";
+        newErrors.dueAmount = 'Enter a valid amount greater than 0'
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   function handlePayNow() {
     if (!validateForm()) {
-      return;
+      return
     }
 
-    const amount = Number(dueAmount);
+    const amount = Number(dueAmount)
 
     if (amount > MOCK_BALANCE) {
-      setFailReason(`Insufficient Balance\nCurrent Balance is: Rs.${MOCK_BALANCE}`);
-      setScreen("failed");
-      return;
+      setFailReason(
+        `Insufficient Balance\nCurrent Balance is: Rs.${MOCK_BALANCE}`
+      )
+      setScreen('failed')
+      return
     }
 
-    const confNum = Math.floor(10000000 + Math.random() * 90000000).toString();
-    setConfirmationNumber(confNum);
-    setScreen("success");
+    const confNum = Math.floor(10000000 + Math.random() * 90000000).toString()
+    setConfirmationNumber(confNum)
+    setScreen('success')
   }
 
   function resetToHome() {
-    setScreen("select");
-    setSelectedBiller(null);
-    setAccountNumber("");
-    setBillId("");
-    setDueAmount("");
-    setRemarks("");
-    setErrors({});
+    setScreen('select')
+    setSelectedBiller(null)
+    setAccountNumber('')
+    setBillId('')
+    setDueAmount('')
+    setRemarks('')
+    setErrors({})
   }
 
   return (
@@ -131,7 +133,7 @@ export default function PayBillsPage() {
                 alt="Profile"
                 width={36}
                 height={36}
-                style={{ objectFit: "cover", borderRadius: "50%" }}
+                style={{ objectFit: 'cover', borderRadius: '50%' }}
               />
             </div>
           </div>
@@ -139,7 +141,7 @@ export default function PayBillsPage() {
 
         <main className="main">
           <div className="card-wrapper">
-            {screen === "select" && (
+            {screen === 'select' && (
               <div className="card">
                 <div className="biller-grid">
                   {billers.map((biller) => (
@@ -154,7 +156,7 @@ export default function PayBillsPage() {
                           alt={biller.name}
                           width={44}
                           height={44}
-                          style={{ objectFit: "contain" }}
+                          style={{ objectFit: 'contain' }}
                         />
                       </div>
                       <span className="biller-name">{biller.name}</span>
@@ -164,9 +166,12 @@ export default function PayBillsPage() {
               </div>
             )}
 
-            {screen === "form" && selectedBiller && (
+            {screen === 'form' && selectedBiller && (
               <div className="card">
-                <button className="back-btn" onClick={() => setScreen("select")}>
+                <button
+                  className="back-btn"
+                  onClick={() => setScreen('select')}
+                >
                   <ChevronLeft size={16} />
                   Back to billers
                 </button>
@@ -178,10 +183,12 @@ export default function PayBillsPage() {
                       alt={selectedBiller.name}
                       width={28}
                       height={28}
-                      style={{ objectFit: "contain" }}
+                      style={{ objectFit: 'contain' }}
                     />
                   </div>
-                  <span className="biller-header-name">{selectedBiller.name}</span>
+                  <span className="biller-header-name">
+                    {selectedBiller.name}
+                  </span>
                 </div>
 
                 <div className="field">
@@ -190,7 +197,7 @@ export default function PayBillsPage() {
                     value={accountNumber}
                     onChange={(e) => setAccountNumber(e.target.value)}
                     placeholder="Enter account number"
-                    className={errors.accountNumber ? "input-error" : ""}
+                    className={errors.accountNumber ? 'input-error' : ''}
                   />
                   {errors.accountNumber && (
                     <span className="error-text">{errors.accountNumber}</span>
@@ -203,9 +210,11 @@ export default function PayBillsPage() {
                     value={billId}
                     onChange={(e) => setBillId(e.target.value)}
                     placeholder="Enter bill ID"
-                    className={errors.billId ? "input-error" : ""}
+                    className={errors.billId ? 'input-error' : ''}
                   />
-                  {errors.billId && <span className="error-text">{errors.billId}</span>}
+                  {errors.billId && (
+                    <span className="error-text">{errors.billId}</span>
+                  )}
                 </div>
 
                 <div className="field">
@@ -215,7 +224,7 @@ export default function PayBillsPage() {
                     value={dueAmount}
                     onChange={(e) => setDueAmount(e.target.value)}
                     placeholder="0.00"
-                    className={errors.dueAmount ? "input-error" : ""}
+                    className={errors.dueAmount ? 'input-error' : ''}
                   />
                   {errors.dueAmount && (
                     <span className="error-text">{errors.dueAmount}</span>
@@ -237,13 +246,15 @@ export default function PayBillsPage() {
               </div>
             )}
 
-            {screen === "success" && (
+            {screen === 'success' && (
               <div className="card status-card">
                 <div className="status-circle success">
                   <CheckCircle2 size={64} />
                 </div>
                 <h2>Payment Successful!</h2>
-                <p className="status-sub">Confirmation number : {confirmationNumber}</p>
+                <p className="status-sub">
+                  Confirmation number : {confirmationNumber}
+                </p>
                 <button className="back-home-btn" onClick={resetToHome}>
                   <ChevronLeft size={16} />
                   BACK TO HOME
@@ -251,7 +262,7 @@ export default function PayBillsPage() {
               </div>
             )}
 
-            {screen === "failed" && (
+            {screen === 'failed' && (
               <div className="card status-card">
                 <div className="status-circle failed">
                   <AlertTriangle size={64} />
@@ -495,5 +506,5 @@ export default function PayBillsPage() {
         }
       `}</style>
     </div>
-  );
+  )
 }
