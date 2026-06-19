@@ -1,38 +1,50 @@
-import { asText, runStatement, serviceFailure } from '@/lib/platform-db'
+import { createClient } from '@/lib/supabase/server'
+import { apiError, serverError } from '@/lib/api-error'
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient()
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return apiError('Unauthorized', 401)
+    }
+
     const body = await request.json().catch(() => ({}))
-    const fromAccount = asText(body.fromAccount || body.from || '1000003423')
-    const toAccount = asText(body.toAccount || body.to)
-    const amount = asText(body.amount || '0')
-    const description = asText(body.description)
-    const userId = asText(body.userId || '1')
+    const { fromAccount, toAccount, amount, description } = body
 
-    await runStatement(`
-      UPDATE accounts
-      SET balance = balance - ${amount}
-      WHERE account_number = '${fromAccount}'
-    `)
+    if (!fromAccount || !toAccount) {
+      return apiError('From and to account numbers are required')
+    }
 
-    await runStatement(`
-      UPDATE accounts
-      SET balance = balance + ${amount}
-      WHERE account_number = '${toAccount}'
-    `)
+    const numAmount = Number(amount)
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+      return apiError('Amount must be a positive number')
+    }
 
-    const inserted = await runStatement(`
-      INSERT INTO transactions (from_account, to_account, amount, description, created_by)
-      VALUES ('${fromAccount}', '${toAccount}', ${amount}, '${description}', ${userId})
-      RETURNING *
-    `)
+    const { data, error } = await supabase.rpc('perform_transfer', {
+      p_from_account: String(fromAccount),
+      p_to_account: String(toAccount),
+      p_amount: numAmount,
+      p_description: String(description || '')
+    })
+
+    if (error) {
+      return serverError(error)
+    }
+
+    if (!data.ok) {
+      return apiError(data.message)
+    }
 
     return Response.json({
       ok: true,
-      message: 'Transfer accepted.',
-      transaction: inserted.rows[0]
+      message: 'Transfer successful',
+      transaction_id: data.transaction_id
     })
   } catch (reason) {
-    return serviceFailure(reason)
+    return serverError(reason)
   }
 }
