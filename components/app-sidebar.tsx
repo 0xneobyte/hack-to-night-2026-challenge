@@ -11,7 +11,8 @@ import {
   ReceiptIcon,
   SendIcon,
   Settings2Icon,
-  WalletIcon
+  WalletIcon,
+  ZapIcon
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import * as React from 'react'
@@ -74,6 +75,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     { title: 'QR Pay', url: '/qr-pay', icon: <QrCodeIcon /> },
     { title: 'Transactions', url: '/transactions', icon: <HistoryIcon /> },
     { title: 'Smart Spend', url: '/smart-spend', icon: <PieChartIcon /> },
+    {
+      title: 'Utility Predictor',
+      url: '/utility-predictor',
+      icon: <ZapIcon />
+    },
     { title: 'E-Statement', url: '/e-statement', icon: <FileTextIcon /> }
   ]
 
