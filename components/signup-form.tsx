@@ -20,6 +20,7 @@ export function SignupForm({
 }: React.ComponentProps<'form'>) {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
+  const [username, setUsername] = useState('')
   const [nic, setNic] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,6 +33,14 @@ export function SignupForm({
     e.preventDefault()
     setError(null)
 
+    if (!username.trim() || username.trim().length < 3) {
+      setError('Username must be at least 3 characters')
+      return
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+      setError('Username can only contain letters, numbers, and underscores')
+      return
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
@@ -50,6 +59,7 @@ export function SignupForm({
       options: {
         data: {
           full_name: fullName,
+          username: username.trim().toLowerCase(),
           nic: nic || null
         }
       }
@@ -108,6 +118,21 @@ export function SignupForm({
             onChange={(e) => setFullName(e.target.value)}
             className="bg-background"
           />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="username">Username</FieldLabel>
+          <Input
+            id="username"
+            type="text"
+            placeholder="e.g. johndoe"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="bg-background"
+          />
+          <FieldDescription>
+            Others can send you money using this username.
+          </FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="nic">NIC Number</FieldLabel>

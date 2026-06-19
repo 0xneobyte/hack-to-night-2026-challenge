@@ -11,6 +11,7 @@ interface ProfileRow {
   full_name: string
   nic: string | null
   role: UserRole
+  username: string | null
   created_at: string
 }
 
@@ -29,7 +30,7 @@ export async function GET() {
     // own profile is visible (`auth.uid() = id`).
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, nic, role, created_at')
+      .select('id, full_name, nic, role, username, created_at')
       .eq('id', user.id)
       .single()
 
@@ -44,6 +45,7 @@ export async function GET() {
         full_name: profile.full_name,
         nic: profile.nic,
         role: profile.role,
+        username: profile.username,
         created_at: profile.created_at,
         email: user.email ?? null
       }

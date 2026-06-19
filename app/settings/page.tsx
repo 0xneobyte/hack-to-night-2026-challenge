@@ -245,6 +245,16 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
+                      <p className="text-sm text-muted-foreground">Username</p>
+                      <p className="font-medium">
+                        @{(profile as any)?.username || 'Not set'}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">Read-only</Badge>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <div>
                       <p className="text-sm text-muted-foreground">
                         NIC Number
                       </p>

@@ -18,6 +18,7 @@ export interface Profile {
   full_name: string
   nic: string | null
   role: UserRole
+  username: string | null
   created_at: string
 }
 
