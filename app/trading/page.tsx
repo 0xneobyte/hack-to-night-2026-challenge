@@ -920,22 +920,12 @@ export default function TradingPage() {
           side="right"
           className="w-full sm:max-w-md p-0 gap-0 flex flex-col"
         >
-          {/* Header band — coloured by mode for instant visual context */}
-          <div
-            className={`px-6 pt-6 pb-5 border-b ${
-              sheetMode === 'BUY'
-                ? 'bg-emerald-500/10 border-emerald-500/20'
-                : 'bg-destructive/10 border-destructive/20'
-            }`}
-          >
+          {/* Header band — neutral, no mode-specific gradient or icon tile */}
+          <div className="px-6 pt-6 pb-5 border-b">
             <SheetHeader className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`flex size-10 items-center justify-center rounded-xl text-white shadow-md ${
-                      sheetMode === 'BUY' ? 'bg-emerald-600' : 'bg-destructive'
-                    }`}
-                  >
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                     {sheetMode === 'BUY' ? (
                       <ShoppingCartIcon className="size-5" />
                     ) : (
