@@ -9,7 +9,6 @@ export default function SignUpPage() {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
   const [nic, setNic] = useState('')
-  const [branch, setBranch] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -39,8 +38,7 @@ export default function SignUpPage() {
       options: {
         data: {
           full_name: fullName,
-          nic: nic || null,
-          branch: branch || null
+          nic: nic || null
         }
       }
     })
@@ -97,28 +95,22 @@ export default function SignUpPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {[
             {
-              label: 'Account Name',
-              id: 'sign-up-account-name',
+              label: 'Full Name',
+              id: 'sign-up-full-name',
               value: fullName,
               onChange: setFullName,
               type: 'text',
-              required: true
+              required: true,
+              placeholder: 'Enter your full name'
             },
             {
-              label: 'Account Number',
-              id: 'sign-up-account-number',
+              label: 'NIC Number',
+              id: 'sign-up-nic',
               value: nic,
               onChange: setNic,
               type: 'text',
-              required: false
-            },
-            {
-              label: 'Branch',
-              id: 'sign-up-branch',
-              value: branch,
-              onChange: setBranch,
-              type: 'text',
-              required: false
+              required: true,
+              placeholder: 'e.g. 200112345678'
             },
             {
               label: 'Email',
@@ -126,7 +118,8 @@ export default function SignUpPage() {
               value: email,
               onChange: setEmail,
               type: 'email',
-              required: true
+              required: true,
+              placeholder: 'Enter your email'
             },
             {
               label: 'Password',
@@ -134,7 +127,8 @@ export default function SignUpPage() {
               value: password,
               onChange: setPassword,
               type: 'password',
-              required: true
+              required: true,
+              placeholder: 'Min 6 characters'
             },
             {
               label: 'Confirm Password',
@@ -142,26 +136,30 @@ export default function SignUpPage() {
               value: confirmPassword,
               onChange: setConfirmPassword,
               type: 'password',
-              required: true
+              required: true,
+              placeholder: 'Re-enter password'
             }
-          ].map(({ label, id, value, onChange, type, required }) => (
-            <div
-              key={id}
-              className="grid items-center gap-4 md:grid-cols-[180px_1fr]"
-            >
-              <label className="text-xl text-black" htmlFor={id}>
-                {label} :
-              </label>
-              <input
-                id={id}
-                type={type}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                required={required}
-                className="h-[64px] rounded-[40px] border-0 bg-[#d9d9d9] px-7 text-lg text-black outline-none"
-              />
-            </div>
-          ))}
+          ].map(
+            ({ label, id, value, onChange, type, required, placeholder }) => (
+              <div
+                key={id}
+                className="grid items-center gap-4 md:grid-cols-[180px_1fr]"
+              >
+                <label className="text-xl text-black" htmlFor={id}>
+                  {label} :
+                </label>
+                <input
+                  id={id}
+                  type={type}
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  required={required}
+                  placeholder={placeholder}
+                  className="h-[64px] rounded-[40px] border-0 bg-[#d9d9d9] px-7 text-lg text-black outline-none placeholder:text-black/40"
+                />
+              </div>
+            )
+          )}
 
           {error && (
             <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">
