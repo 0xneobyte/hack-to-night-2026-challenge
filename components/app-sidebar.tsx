@@ -1,14 +1,15 @@
 'use client'
 
 import {
-  ArrowLeftRightIcon,
   FileTextIcon,
   HistoryIcon,
   LandmarkIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   PieChartIcon,
+  QrCodeIcon,
   ReceiptIcon,
+  SendIcon,
   Settings2Icon,
   WalletIcon,
   ZapIcon
@@ -66,11 +67,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     { title: 'Dashboard', url: '/dashboard', icon: <LayoutDashboardIcon /> },
     { title: 'Accounts', url: '/bank-accounts', icon: <WalletIcon /> },
     {
-      title: 'Bank Transfer',
+      title: 'Send',
       url: '/bank-transfer',
-      icon: <ArrowLeftRightIcon />
+      icon: <SendIcon />
     },
     { title: 'Pay Bills', url: '/pay-bills', icon: <ReceiptIcon /> },
+    { title: 'QR Pay', url: '/qr-pay', icon: <QrCodeIcon /> },
     { title: 'Transactions', url: '/transactions', icon: <HistoryIcon /> },
     { title: 'Smart Spend', url: '/smart-spend', icon: <PieChartIcon /> },
     {
