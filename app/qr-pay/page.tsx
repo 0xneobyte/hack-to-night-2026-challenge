@@ -3,6 +3,8 @@
 import {
   CheckCircle2Icon,
   CopyIcon,
+  EyeIcon,
+  EyeOffIcon,
   PlusIcon,
   Trash2Icon,
   UserIcon,
@@ -74,6 +76,46 @@ function formatCurrency(n: number) {
 function qrLink(code: string) {
   if (typeof window === 'undefined') return code
   return `${window.location.origin}/qr-pay?code=${encodeURIComponent(code)}`
+}
+
+/**
+ * MaskedAccount — shows an account number with the first digits hidden
+ * by default. Click the eye icon to reveal / hide.
+ *
+ * Example: '1234567890' → '••••7890' (hidden) / '1234567890' (revealed)
+ *
+ * `className` is applied to the wrapper so callers can match the
+ * surrounding text weight / size.
+ */
+function MaskedAccount({
+  account,
+  className
+}: {
+  account: string
+  className?: string
+}) {
+  const [revealed, setRevealed] = useState(false)
+
+  // Show only the last 4 digits when hidden. Short values are shown as-is.
+  const masked = account.length <= 4 ? account : `••••${account.slice(-4)}`
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${className ?? ''}`}>
+      <span className="tabular-nums">{revealed ? account : masked}</span>
+      <button
+        type="button"
+        onClick={() => setRevealed((v) => !v)}
+        aria-label={revealed ? 'Hide account number' : 'Show account number'}
+        className="text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {revealed ? (
+          <EyeOffIcon className="size-3.5" />
+        ) : (
+          <EyeIcon className="size-3.5" />
+        )}
+      </button>
+    </span>
+  )
 }
 
 export default function QrPayPage() {
@@ -326,7 +368,10 @@ function PayTab({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<PayMode>('choose')
-  const [done, setDone] = useState<string | null>(null)
+  const [done, setDone] = useState<{
+    title: string
+    subtitle?: string
+  } | null>(null)
 
   const loadRequest = useCallback(async (c: string) => {
     setError('')
@@ -359,12 +404,19 @@ function PayTab({
   if (done) {
     return (
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 py-10">
+        <CardContent className="flex flex-col items-center gap-3 py-10">
           <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
             <CheckCircle2Icon className="size-8 text-emerald-600" />
           </div>
-          <h2 className="text-xl font-semibold">{done}</h2>
-          <Button onClick={reset}>Done</Button>
+          <h2 className="text-xl font-semibold text-center">{done.title}</h2>
+          {done.subtitle && (
+            <p className="text-sm text-muted-foreground text-center max-w-xs">
+              {done.subtitle}
+            </p>
+          )}
+          <Button onClick={reset} className="mt-2">
+            Done
+          </Button>
         </CardContent>
       </Card>
     )
@@ -397,9 +449,13 @@ function PayTab({
       <CardHeader>
         <CardTitle>Payment request</CardTitle>
         <CardDescription>
-          {request.requester_name
-            ? `Requested by ${request.requester_name}`
-            : `To account ${request.to_account}`}
+          {request.requester_name ? (
+            `Requested by ${request.requester_name}`
+          ) : (
+            <>
+              To account <MaskedAccount account={request.to_account} />
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -414,7 +470,10 @@ function PayTab({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">To account</span>
-            <span className="font-medium">{request.to_account}</span>
+            <MaskedAccount
+              account={request.to_account}
+              className="font-medium"
+            />
           </div>
           {request.description && (
             <div className="flex justify-between">
@@ -488,7 +547,10 @@ function PayTab({
             request={request}
             onBack={() => setMode('choose')}
             onDone={() =>
-              setDone('Split created — settle your share in “Shared with me”.')
+              setDone({
+                title: 'Split Created',
+                subtitle: 'Settle your share under Shared with me'
+              })
             }
           />
         )}
@@ -506,7 +568,7 @@ function SinglePay({
   accounts: Account[]
   request: RequestView
   onBack: () => void
-  onDone: (msg: string) => void
+  onDone: (result: { title: string; subtitle?: string }) => void
 }) {
   const [fromAccount, setFromAccount] = useState(
     accounts[0]?.account_number ?? ''
@@ -542,7 +604,10 @@ function SinglePay({
     const json = await res.json()
     setLoading(false)
     if (json.ok) {
-      onDone(`Paid ${formatCurrency(json.data.amount)} successfully!`)
+      onDone({
+        title: 'Payment Successful',
+        subtitle: `${formatCurrency(json.data.amount)} paid to ${request.requester_name || 'recipient'}`
+      })
     } else {
       setError(json.message || 'Payment failed')
     }
