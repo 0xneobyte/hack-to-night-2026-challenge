@@ -5,7 +5,6 @@ import {
   ArrowUpIcon,
   ClockIcon,
   HistoryIcon,
-  LineChartIcon,
   RefreshCwIcon,
   SearchIcon,
   ShoppingCartIcon,
@@ -219,6 +218,16 @@ export default function TradingPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
   const [portfolioLoading, setPortfolioLoading] = useState(true)
 
+  // --- Bank accounts state (real Nova Bank balance) -------------------------
+  interface BankAccount {
+    id: number
+    account_number: string
+    account_name: string
+    balance: number
+  }
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+  const [bankLoading, setBankLoading] = useState(true)
+
   // --- Trade sheet state ----------------------------------------------------
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetMode, setSheetMode] = useState<'BUY' | 'SELL'>('BUY')
@@ -274,12 +283,29 @@ export default function TradingPage() {
     }
   }, [])
 
+  const loadBankAccounts = useCallback(async () => {
+    setBankLoading(true)
+    try {
+      const res = await fetch('/api/accounts')
+      const json = await res.json()
+      if (json.ok) {
+        const accs = json.data?.accounts ?? json.accounts ?? []
+        setBankAccounts(accs)
+      }
+    } catch (err) {
+      console.error('Failed to load bank accounts', err)
+    } finally {
+      setBankLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadMarketData()
     loadPortfolio()
+    loadBankAccounts()
     const id = setInterval(() => loadMarketData(true), REFRESH_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [loadMarketData, loadPortfolio])
+  }, [loadMarketData, loadPortfolio, loadBankAccounts])
 
   // ==========================================================================
   // Trade sheet handlers
@@ -382,6 +408,15 @@ export default function TradingPage() {
   // first trade so the UI never flashes Rs. 0.00 while data resolves.
   const effectiveCashBalance = portfolio?.balance?.balance ?? SEED_AMOUNT
 
+  // Total real Nova Bank balance across all the user's accounts.
+  // Used in the hero KPI tile to show the user's actual bank balance
+  // (separate from the demo trading virtual cash).
+  const totalBankBalance = useMemo(
+    () =>
+      (bankAccounts ?? []).reduce((sum, a) => sum + Number(a.balance || 0), 0),
+    [bankAccounts]
+  )
+
   const totalPnl = useMemo(() => {
     if (!portfolio) return 0
     return portfolioValue - portfolio.seedAmount
@@ -409,19 +444,14 @@ export default function TradingPage() {
             <div className="px-4 py-6 md:px-8 md:py-8 flex flex-col gap-5">
               {/* Top row: brand + live clock + refresh */}
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-                    <LineChartIcon className="size-6" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-playfair">
-                      Stock Trading
-                    </h1>
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Demo trading with virtual LKR · Live Colombo Stock
-                      Exchange feed
-                    </p>
-                  </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-playfair">
+                    Stock Trading
+                  </h1>
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    Demo trading with virtual LKR · Live Colombo Stock Exchange
+                    feed
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-background/60 backdrop-blur px-3 py-1.5 text-xs text-muted-foreground">
@@ -474,24 +504,21 @@ export default function TradingPage() {
                 />
 
                 <KpiPulseCard
-                  label="Portfolio Value"
-                  loading={portfolioLoading && !portfolio}
-                  value={formatLKR(portfolioValue)}
+                  label="Bank Balance"
+                  loading={bankLoading && bankAccounts.length === 0}
+                  value={formatLKR(totalBankBalance)}
                   accentClass="font-playfair"
                   sub={
-                    <span
-                      className={`font-medium ${
-                        totalPnl >= 0 ? 'text-emerald-600' : 'text-destructive'
-                      }`}
-                    >
-                      {totalPnl >= 0 ? '+' : ''}
-                      {formatLKR(totalPnl)} P/L
+                    <span className="text-muted-foreground">
+                      {bankAccounts.length === 0
+                        ? 'No bank accounts'
+                        : `${bankAccounts.length} ${bankAccounts.length === 1 ? 'account' : 'accounts'}`}
                     </span>
                   }
                   footer={
                     <Badge variant="outline" className="gap-1">
                       <WalletIcon className="size-3" />
-                      Cash {formatLKRCompact(effectiveCashBalance)}
+                      Nova Bank
                     </Badge>
                   }
                 />
