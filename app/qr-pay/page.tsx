@@ -116,7 +116,7 @@ export default function QrPayPage() {
           <div className="w-full max-w-xl">
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="mb-4 grid w-full grid-cols-3">
-                <TabsTrigger value="receive">Receive</TabsTrigger>
+                <TabsTrigger value="receive">Request</TabsTrigger>
                 <TabsTrigger value="pay">Pay</TabsTrigger>
                 <TabsTrigger value="splits">Shared with me</TabsTrigger>
               </TabsList>
