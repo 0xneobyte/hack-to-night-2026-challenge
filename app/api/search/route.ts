@@ -1,29 +1,61 @@
-import { asText, runStatement, serviceFailure } from '@/lib/platform-db'
+import { createClient } from '@/lib/supabase/server'
+import { apiError, serverError } from '@/lib/api-error'
 
 export async function GET(request: Request) {
   try {
+    const supabase = await createClient()
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return apiError('Unauthorized', 401)
+    }
+
     const { searchParams } = new URL(request.url)
-    const q = asText(searchParams.get('q'))
+    const q = searchParams.get('q') || ''
 
-    const sql = `
-      SELECT 'user' AS type, id::text, username AS label, email AS detail FROM users
-      WHERE username ILIKE '%${q}%' OR full_name ILIKE '%${q}%'
-      UNION ALL
-      SELECT 'account' AS type, id::text, account_number AS label, account_name AS detail FROM accounts
-      WHERE account_number ILIKE '%${q}%' OR account_name ILIKE '%${q}%'
-      UNION ALL
-      SELECT 'transaction' AS type, id::text, from_account || ' -> ' || to_account AS label, description AS detail FROM transactions
-      WHERE description ILIKE '%${q}%'
-      LIMIT 25
-    `
-    const result = await runStatement(sql)
+    if (!q.trim()) {
+      return Response.json({ ok: true, results: [] })
+    }
 
-    return Response.json({
-      ok: true,
-      query: q,
-      results: result.rows
-    })
+    const { data: accounts, error: accErr } = await supabase
+      .from('accounts')
+      .select('id, account_number, account_name')
+      .or(`account_number.ilike.%${q}%,account_name.ilike.%${q}%`)
+      .limit(10)
+
+    if (accErr) {
+      return serverError(accErr)
+    }
+
+    const { data: txns, error: txErr } = await supabase
+      .from('transactions')
+      .select('id, from_account, to_account, description')
+      .ilike('description', `%${q}%`)
+      .limit(10)
+
+    if (txErr) {
+      return serverError(txErr)
+    }
+
+    const results = [
+      ...(accounts || []).map((a) => ({
+        type: 'account',
+        id: String(a.id),
+        label: a.account_number,
+        detail: a.account_name
+      })),
+      ...(txns || []).map((t) => ({
+        type: 'transaction',
+        id: String(t.id),
+        label: `${t.from_account} -> ${t.to_account}`,
+        detail: t.description
+      }))
+    ]
+
+    return Response.json({ ok: true, results })
   } catch (reason) {
-    return serviceFailure(reason)
+    return serverError(reason)
   }
 }
