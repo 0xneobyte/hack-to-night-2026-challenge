@@ -77,7 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   ]
 
   const navSecondary = [
-    { title: 'Settings', url: '#', icon: <Settings2Icon /> },
+    { title: 'Settings', url: '/settings', icon: <Settings2Icon /> },
     { title: 'Log out', url: '#', icon: <LogOutIcon />, onClick: handleLogout }
   ]
 
