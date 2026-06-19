@@ -25,21 +25,23 @@ export default function SmartSpendPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col items-center justify-center p-4 md:p-6">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-muted">
-                <PieChartIcon className="size-6 text-muted-foreground" />
-              </div>
-              <CardTitle className="mt-4">Smart Spend</CardTitle>
-              <CardDescription>
-                Spending analytics and budget tracking will appear here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-sm text-muted-foreground">Coming soon</p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-1 flex-col p-4 md:p-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Smart Spend</h1>
+            <p className="text-sm text-muted-foreground">
+              Spending analytics and budget tracking
+            </p>
+          </div>
+          <div className="flex flex-1 items-center justify-center">
+            <Card className="w-full max-w-md">
+              <CardContent className="flex flex-col items-center gap-4 py-10">
+                <div className="flex size-14 items-center justify-center rounded-full bg-muted">
+                  <PieChartIcon className="size-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">Coming soon</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

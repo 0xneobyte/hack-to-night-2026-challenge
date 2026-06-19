@@ -146,18 +146,18 @@ export default function PayBillsPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col items-center p-4 md:p-6">
+        <div className="flex flex-1 flex-col items-center p-4 md:p-6 gap-4">
           <div className="w-full max-w-2xl">
+            <div className="mb-2">
+              <h1 className="text-2xl font-bold">Pay Bills</h1>
+              <p className="text-sm text-muted-foreground">
+                {selected
+                  ? `Paying from: ${selected.account_name} — ${formatCurrency(selected.balance)}`
+                  : 'Pay your utility bills and subscriptions'}
+              </p>
+            </div>
             {screen === 'select' && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Pay Bills</CardTitle>
-                  <CardDescription>
-                    {selected
-                      ? `Paying from: ${selected.account_name} — ${formatCurrency(selected.balance)}`
-                      : 'Select a biller'}
-                  </CardDescription>
-                </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4 sm:grid-cols-4">
                     {billers.map((b) => (

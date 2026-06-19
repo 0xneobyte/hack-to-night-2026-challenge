@@ -112,11 +112,13 @@ export default function EStatementPage() {
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col p-4 md:p-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">E-Statement</h1>
+            <p className="text-sm text-muted-foreground">
+              View and download your account statements
+            </p>
+          </div>
           <Card>
-            <CardHeader>
-              <CardTitle>E-Statement</CardTitle>
-              <CardDescription>View your account statement</CardDescription>
-            </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                 <div className="flex flex-col gap-2 flex-1">
