@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 
 import { NavMain } from '@/components/nav-main'
 import { NavSecondary } from '@/components/nav-secondary'
-import { NavUser } from '@/components/nav-user'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +24,6 @@ import {
   PieChartIcon,
   FileTextIcon,
   Settings2Icon,
-  CircleHelpIcon,
   LogOutIcon,
   LandmarkIcon
 } from 'lucide-react'
@@ -32,7 +31,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter()
-  const [user, setUser] = useState({ name: '', email: '', avatar: '' })
+  const [user, setUser] = useState({ name: '', email: '' })
 
   useEffect(() => {
     fetch('/api/profile')
@@ -42,8 +41,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           const p = json.data?.profile ?? json.profile
           setUser({
             name: p?.full_name || 'User',
-            email: p?.email || '',
-            avatar: ''
+            email: p?.email || ''
           })
         }
       })
@@ -55,6 +53,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     router.push('/login')
     router.refresh()
   }
+
+  const initials = user.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   const navMain = [
     { title: 'Dashboard', url: '/dashboard', icon: <LayoutDashboardIcon /> },
@@ -71,7 +76,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const navSecondary = [
     { title: 'Settings', url: '#', icon: <Settings2Icon /> },
-    { title: 'Help', url: '#', icon: <CircleHelpIcon /> },
     { title: 'Log out', url: '#', icon: <LogOutIcon />, onClick: handleLogout }
   ]
 
@@ -97,7 +101,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <div className="flex items-center gap-3 px-2 py-1.5">
+          <Avatar className="h-8 w-8 rounded-lg">
+            <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-medium">{user.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {user.email}
+            </span>
+          </div>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )
