@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Poppins, Geist_Mono } from 'next/font/google'
+import { ThemeProvider } from 'next-themes'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 import { cn } from '@/lib/utils'
@@ -34,9 +35,12 @@ export default function RootLayout({
         geistMono.variable,
         'font-sans'
       )}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
