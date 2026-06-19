@@ -184,14 +184,14 @@ export default function EStatementPage() {
           </div>
 
           {/* Filters row */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex flex-col gap-2 flex-1 max-w-xs">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[280px] sm:max-w-md">
               <Label>Account</Label>
               <Select
                 value={selectedAccount}
                 onValueChange={setSelectedAccount}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,10 +203,10 @@ export default function EStatementPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-2 flex-1 max-w-xs">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[160px]">
               <Label>Month</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
