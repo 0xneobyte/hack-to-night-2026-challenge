@@ -1,9 +1,21 @@
 'use client'
 
+import {
+  ArrowLeftRightIcon,
+  CandlestickChartIcon,
+  FileTextIcon,
+  HistoryIcon,
+  LandmarkIcon,
+  LayoutDashboardIcon,
+  LogOutIcon,
+  PieChartIcon,
+  ReceiptIcon,
+  Settings2Icon,
+  WalletIcon
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import * as React from 'react'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-
 import { NavMain } from '@/components/nav-main'
 import { NavSecondary } from '@/components/nav-secondary'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -16,18 +28,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar'
-import {
-  LayoutDashboardIcon,
-  WalletIcon,
-  ArrowLeftRightIcon,
-  ReceiptIcon,
-  PieChartIcon,
-  FileTextIcon,
-  HistoryIcon,
-  Settings2Icon,
-  LogOutIcon,
-  LandmarkIcon
-} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -72,6 +72,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
     { title: 'Pay Bills', url: '/pay-bills', icon: <ReceiptIcon /> },
     { title: 'Transactions', url: '/transactions', icon: <HistoryIcon /> },
+    {
+      title: 'Stock Trading',
+      url: '/trading',
+      icon: <CandlestickChartIcon />
+    },
     { title: 'Smart Spend', url: '/smart-spend', icon: <PieChartIcon /> },
     { title: 'E-Statement', url: '/e-statement', icon: <FileTextIcon /> }
   ]
