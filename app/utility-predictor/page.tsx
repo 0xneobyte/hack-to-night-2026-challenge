@@ -6,8 +6,7 @@ import {
   LightbulbIcon,
   MinusIcon,
   TrendingDownIcon,
-  TrendingUpIcon,
-  ZapIcon
+  TrendingUpIcon
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
@@ -89,10 +88,7 @@ export default function UtilityPredictorPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="flex items-center gap-2 text-2xl font-bold">
-                <ZapIcon className="size-6 text-primary" />
-                Utility Price Predictor
-              </h1>
+              <h1 className="text-2xl font-bold">Utility Price Predictor</h1>
               <p className="text-sm text-muted-foreground">
                 AI forecasts for electricity, fuel & water bills
               </p>
