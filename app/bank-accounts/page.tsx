@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Sidebar from '@/components/sidebar'
@@ -10,6 +10,14 @@ import styles from './accounts.module.css'
 type Screen = 'list' | 'add' | 'edit'
 
 export default function AccountsPage() {
+  return (
+    <Suspense>
+      <AccountsContent />
+    </Suspense>
+  )
+}
+
+function AccountsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
