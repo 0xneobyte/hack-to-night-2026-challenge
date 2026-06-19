@@ -250,3 +250,46 @@ main h2{color:#000;font-size:28px;font-weight:800}
     @apply font-sans;
   }
 }
+/* ===========================================================================
+   Trading page — premium header + market-pulse animations
+   =========================================================================== */
+
+@keyframes nb-flash-up {
+  0%   { background-color: oklch(0.85 0.18 145 / 0); }
+  20%  { background-color: oklch(0.85 0.18 145 / 0.35); }
+  100% { background-color: oklch(0.85 0.18 145 / 0); }
+}
+@keyframes nb-flash-down {
+  0%   { background-color: oklch(0.65 0.22 25 / 0); }
+  20%  { background-color: oklch(0.65 0.22 25 / 0.35); }
+  100% { background-color: oklch(0.65 0.22 25 / 0); }
+}
+.nb-flash-up   { animation: nb-flash-up   0.9s ease-out; }
+.nb-flash-down { animation: nb-flash-down 0.9s ease-out; }
+
+@keyframes nb-pulse-dot {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.85); }
+}
+.nb-pulse-dot { animation: nb-pulse-dot 1.6s ease-in-out infinite; }
+
+@keyframes nb-pulse-ring {
+  0%   { transform: scale(0.9); opacity: 0.6; }
+  80%  { transform: scale(1.8); opacity: 0; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.nb-pulse-ring { animation: nb-pulse-ring 1.8s ease-out infinite; }
+
+/* Hero gradient — works in both light and dark modes */
+.nb-hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, oklch(0.25 0.12 320 / 0.18), transparent 70%),
+    radial-gradient(ellipse 60% 60% at 0% 100%, oklch(0.55 0.20 145 / 0.10), transparent 70%),
+    linear-gradient(180deg, oklch(0.985 0 0), oklch(0.97 0 0));
+}
+.dark .nb-hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, oklch(0.55 0.20 320 / 0.35), transparent 70%),
+    radial-gradient(ellipse 60% 60% at 0% 100%, oklch(0.55 0.18 145 / 0.18), transparent 70%),
+    linear-gradient(180deg, oklch(0.18 0 0), oklch(0.13 0 0));
+}

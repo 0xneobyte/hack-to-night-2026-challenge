@@ -4,7 +4,7 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CandlestickChartIcon,
-  CircleDotIcon,
+  ClockIcon,
   HistoryIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -14,7 +14,7 @@ import {
   TrendingUpIcon,
   WalletIcon
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
@@ -103,6 +103,16 @@ interface MarketSummary {
     timestamp: number | null
   } | null
   marketOpen: boolean
+  status: {
+    session: 'PRE_OPEN' | 'OPEN' | 'CLOSED' | 'AFTER_HOURS'
+    isOpen: boolean
+    label: 'Open' | 'Pre-Open' | 'Closed' | 'After Hours'
+    colomboTime: string
+    colomboDayOfWeek: number
+    colomboHourDecimal: number
+    reason?: 'WEEKEND' | 'BEFORE_OPEN' | 'AFTER_CLOSE' | 'FORCED_CLOSED'
+    nextOpenAt: string | null
+  }
 }
 
 interface Holding {
@@ -132,6 +142,60 @@ interface Portfolio {
 
 const REFRESH_INTERVAL_MS = 30_000 // 30 seconds
 
+// ---------------------------------------------------------------------------
+// usePriceFlash — returns a CSS class that flashes green/red whenever the
+// value changes between renders. Used on every live price in the UI so a
+// refresh produces a subtle visual cue rather than a silent text swap.
+// ---------------------------------------------------------------------------
+function usePriceFlash(value: number | null | undefined): string {
+  const prevRef = useRef<number | null | undefined>(value)
+  const [flash, setFlash] = useState<'nb-flash-up' | 'nb-flash-down' | ''>('')
+
+  useEffect(() => {
+    if (
+      value !== prevRef.current &&
+      typeof value === 'number' &&
+      typeof prevRef.current === 'number'
+    ) {
+      setFlash(value > prevRef.current ? 'nb-flash-up' : 'nb-flash-down')
+      const id = setTimeout(() => setFlash(''), 900)
+      prevRef.current = value
+      return () => clearTimeout(id)
+    }
+    prevRef.current = value
+  }, [value])
+
+  return flash
+}
+
+/**
+ * Formats a duration in ms as "3h 12m" or "12m 30s" or "in 45s".
+ * Used to render "Opens in 3h 12m" next to the closed market badge.
+ */
+function formatDuration(ms: number): string {
+  if (ms <= 0) return 'soon'
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+/** Formats the Asia/Colombo wall-clock time as "10:45 AM". */
+function formatColomboClock(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Colombo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
 export default function TradingPage() {
   // --- Market data state ----------------------------------------------------
   const [summary, setSummary] = useState<MarketSummary | null>(null)
@@ -142,6 +206,14 @@ export default function TradingPage() {
   const [marketError, setMarketError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [search, setSearch] = useState('')
+
+  // --- Live ticking Colombo clock (updates every second) --------------------
+  // Drives the "now" display in the hero and the "opens in" countdown.
+  const [now, setNow] = useState<Date>(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
 
   // --- Portfolio state ------------------------------------------------------
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
@@ -322,510 +394,481 @@ export default function TradingPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col p-4 md:p-6 gap-4">
-          {/* Page heading */}
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <CandlestickChartIcon className="size-6" />
-                Stock Trading
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Demo trading with virtual LKR — live CSE market data
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {lastUpdated && (
-                <span className="text-xs text-muted-foreground">
-                  Updated {formatTradeTime(lastUpdated.getTime())}
-                </span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loadMarketData()}
-                disabled={marketLoading}
-              >
-                <RefreshCwIcon
-                  className={`size-4 ${marketLoading ? 'animate-spin' : ''}`}
-                />
-                Refresh
-              </Button>
-            </div>
-          </div>
-
-          {/* Market status banner */}
-          {marketError && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {marketError}
-            </div>
-          )}
-
-          {/* Top stats grid */}
-          <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-            {/* Market status */}
-            <Card>
-              <CardHeader>
-                <CardDescription>Market Status</CardDescription>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  {marketLoading ? (
-                    <Skeleton className="h-6 w-24" />
-                  ) : (
-                    <>
-                      <CircleDotIcon
-                        className={`size-4 ${
-                          summary?.marketOpen
-                            ? 'text-emerald-500'
-                            : 'text-muted-foreground'
-                        }`}
-                      />
-                      {summary?.marketOpen ? 'Open' : 'Closed'}
-                    </>
+        <div className="flex flex-1 flex-col gap-4">
+          {/* ---------------- Premium Hero ---------------- */}
+          <section className="nb-hero-gradient relative overflow-hidden border-b">
+            <div className="px-4 py-6 md:px-8 md:py-8 flex flex-col gap-5">
+              {/* Top row: brand + live clock + refresh */}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+                    <CandlestickChartIcon className="size-6" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-playfair">
+                      Stock Trading
+                    </h1>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      Demo trading with virtual LKR · Live Colombo Stock
+                      Exchange feed
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-background/60 backdrop-blur px-3 py-1.5 text-xs text-muted-foreground">
+                    <ClockIcon className="size-3.5" />
+                    <span className="tabular-nums">
+                      {formatColomboClock(now.toISOString())}{' '}
+                      <span className="text-muted-foreground/70">CSE</span>
+                    </span>
+                  </div>
+                  {lastUpdated && (
+                    <span className="hidden md:inline text-xs text-muted-foreground">
+                      Updated {formatTradeTime(lastUpdated.getTime())}
+                    </span>
                   )}
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline">CSE</Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="text-xs text-muted-foreground">
-                {summary?.summary
-                  ? `${summary.summary.trades.toLocaleString()} trades today`
-                  : 'No trades reported'}
-              </CardFooter>
-            </Card>
-
-            {/* ASPI */}
-            <Card>
-              <CardHeader>
-                <CardDescription>ASPI</CardDescription>
-                <CardTitle className="text-xl tabular-nums">
-                  {marketLoading ? (
-                    <Skeleton className="h-6 w-32" />
-                  ) : summary?.aspi ? (
-                    formatNumber(summary.aspi.value, 2)
-                  ) : (
-                    '—'
-                  )}
-                </CardTitle>
-                <CardAction>
-                  {summary?.aspi && (
-                    <Badge
-                      variant="outline"
-                      className={
-                        summary.aspi.change >= 0
-                          ? 'text-emerald-600'
-                          : 'text-destructive'
-                      }
-                    >
-                      {summary.aspi.change >= 0 ? (
-                        <ArrowUpIcon className="size-3" />
-                      ) : (
-                        <ArrowDownIcon className="size-3" />
-                      )}
-                      {formatPercent(summary.aspi.percentage)}
-                    </Badge>
-                  )}
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="text-xs text-muted-foreground">
-                {summary?.aspi
-                  ? `Range ${formatNumber(summary.aspi.lowValue)} – ${formatNumber(
-                      summary.aspi.highValue
-                    )}`
-                  : 'No ASPI data'}
-              </CardFooter>
-            </Card>
-
-            {/* Portfolio value */}
-            <Card>
-              <CardHeader>
-                <CardDescription>Portfolio Value</CardDescription>
-                <CardTitle className="text-xl tabular-nums">
-                  {portfolioLoading ? (
-                    <Skeleton className="h-6 w-32" />
-                  ) : (
-                    formatLKR(portfolioValue)
-                  )}
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline">
-                    <WalletIcon className="size-3" />
-                    Cash {formatLKRCompact(portfolio?.balance.balance ?? 0)}
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="text-xs">
-                <span
-                  className={`font-medium ${
-                    totalPnl >= 0 ? 'text-emerald-600' : 'text-destructive'
-                  }`}
-                >
-                  {totalPnl >= 0 ? '+' : ''}
-                  {formatLKR(totalPnl)} P/L
-                </span>
-              </CardFooter>
-            </Card>
-
-            {/* Holdings count */}
-            <Card>
-              <CardHeader>
-                <CardDescription>Holdings</CardDescription>
-                <CardTitle className="text-xl tabular-nums">
-                  {portfolioLoading ? (
-                    <Skeleton className="h-6 w-16" />
-                  ) : (
-                    (portfolio?.holdings.length ?? 0)
-                  )}
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline">symbols</Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="text-xs text-muted-foreground">
-                Trade volume{' '}
-                {summary?.summary
-                  ? formatCompactVolume(summary.summary.tradeVolume)
-                  : '—'}
-              </CardFooter>
-            </Card>
-          </div>
-
-          {/* Main content tabs */}
-          <Tabs defaultValue="market" className="gap-4">
-            <TabsList>
-              <TabsTrigger value="market">
-                <TrendingUpIcon className="size-4" />
-                Market
-              </TabsTrigger>
-              <TabsTrigger value="portfolio">
-                <WalletIcon className="size-4" />
-                My Portfolio
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                <HistoryIcon className="size-4" />
-                Trade History
-              </TabsTrigger>
-            </TabsList>
-
-            {/* ---------------- Market tab ---------------- */}
-            <TabsContent value="market" className="flex flex-col gap-4">
-              {/* Top movers row */}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <TopMoversCard
-                  title="Top Gainers"
-                  icon={<TrendingUpIcon className="size-4 text-emerald-600" />}
-                  movers={gainers}
-                  loading={marketLoading}
-                  onTrade={openBuySheet}
-                  emptyMessage="No gainers reported today"
-                />
-                <TopMoversCard
-                  title="Top Losers"
-                  icon={
-                    <TrendingDownIcon className="size-4 text-destructive" />
-                  }
-                  movers={losers}
-                  loading={marketLoading}
-                  onTrade={openBuySheet}
-                  emptyMessage="No losers reported today"
-                />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadMarketData()}
+                    disabled={marketLoading}
+                  >
+                    <RefreshCwIcon
+                      className={`size-4 ${marketLoading ? 'animate-spin' : ''}`}
+                    />
+                    Refresh
+                  </Button>
+                </div>
               </div>
 
-              {/* Full share price table */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Shares</CardTitle>
-                  <CardDescription>
-                    Live prices for every listed CSE symbol
-                  </CardDescription>
-                  <CardAction>
-                    <div className="relative">
-                      <SearchIcon className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search symbol…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-8 w-48"
-                      />
-                    </div>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="px-0">
-                  {marketLoading ? (
-                    <div className="px-6 pb-6 space-y-2">
-                      {Array.from({ length: 8 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-full" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="max-h-[28rem] overflow-y-auto">
+              {/* Market Pulse Row: market-status badge + ASPI + portfolio KPIs */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <MarketPulseCard
+                  label="Market Status"
+                  loading={marketLoading && !summary}
+                  colomboTime={summary?.status?.colomboTime}
+                  session={summary?.status?.session}
+                  label2={summary?.status?.label}
+                  isOpen={summary?.status?.isOpen}
+                  nextOpenAt={summary?.status?.nextOpenAt}
+                  now={now}
+                  sub={
+                    summary?.summary
+                      ? `${summary.summary.trades.toLocaleString()} trades today`
+                      : 'No trades reported'
+                  }
+                />
+
+                <AspiPulseCard
+                  loading={marketLoading && !summary}
+                  aspi={summary?.aspi}
+                />
+
+                <KpiPulseCard
+                  label="Portfolio Value"
+                  loading={portfolioLoading && !portfolio}
+                  value={formatLKR(portfolioValue)}
+                  accentClass="font-playfair"
+                  sub={
+                    <span
+                      className={`font-medium ${
+                        totalPnl >= 0 ? 'text-emerald-600' : 'text-destructive'
+                      }`}
+                    >
+                      {totalPnl >= 0 ? '+' : ''}
+                      {formatLKR(totalPnl)} P/L
+                    </span>
+                  }
+                  footer={
+                    <Badge variant="outline" className="gap-1">
+                      <WalletIcon className="size-3" />
+                      Cash {formatLKRCompact(portfolio?.balance.balance ?? 0)}
+                    </Badge>
+                  }
+                />
+
+                <KpiPulseCard
+                  label="Holdings"
+                  loading={portfolioLoading && !portfolio}
+                  value={String(portfolio?.holdings.length ?? 0)}
+                  accentClass="font-playfair"
+                  sub={
+                    <span className="text-muted-foreground">
+                      Trade volume{' '}
+                      {summary?.summary
+                        ? formatCompactVolume(summary.summary.tradeVolume)
+                        : '—'}
+                    </span>
+                  }
+                  footer={<Badge variant="outline">symbols</Badge>}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Main body wrapper gets its own padding so the hero can bleed full-width */}
+          <div className="px-4 md:px-6 pb-6 flex flex-col gap-4">
+            {/* Market status banner */}
+            {marketError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {marketError}
+              </div>
+            )}
+
+            {/* Main content tabs */}
+            <Tabs defaultValue="market" className="gap-4">
+              <TabsList>
+                <TabsTrigger value="market">
+                  <TrendingUpIcon className="size-4" />
+                  Market
+                </TabsTrigger>
+                <TabsTrigger value="portfolio">
+                  <WalletIcon className="size-4" />
+                  My Portfolio
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <HistoryIcon className="size-4" />
+                  Trade History
+                </TabsTrigger>
+              </TabsList>
+
+              {/* ---------------- Market tab ---------------- */}
+              <TabsContent value="market" className="flex flex-col gap-4">
+                {/* Top movers row */}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <TopMoversCard
+                    title="Top Gainers"
+                    icon={
+                      <TrendingUpIcon className="size-4 text-emerald-600" />
+                    }
+                    movers={gainers}
+                    loading={marketLoading}
+                    onTrade={openBuySheet}
+                    emptyMessage="No gainers reported today"
+                  />
+                  <TopMoversCard
+                    title="Top Losers"
+                    icon={
+                      <TrendingDownIcon className="size-4 text-destructive" />
+                    }
+                    movers={losers}
+                    loading={marketLoading}
+                    onTrade={openBuySheet}
+                    emptyMessage="No losers reported today"
+                  />
+                </div>
+
+                {/* Full share price table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>All Shares</CardTitle>
+                    <CardDescription>
+                      Live prices for every listed CSE symbol
+                    </CardDescription>
+                    <CardAction>
+                      <div className="relative">
+                        <SearchIcon className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Search symbol…"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="pl-8 w-48"
+                        />
+                      </div>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="px-0">
+                    {marketLoading ? (
+                      <div className="px-6 pb-6 space-y-2">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <Skeleton key={i} className="h-10 w-full" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="max-h-[28rem] overflow-y-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-card">
+                            <TableRow>
+                              <TableHead>Symbol</TableHead>
+                              <TableHead className="text-right">
+                                Price
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Change
+                              </TableHead>
+                              <TableHead className="text-right hidden sm:table-cell">
+                                Volume
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Action
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredPrices.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={5}
+                                  className="text-center text-muted-foreground py-8"
+                                >
+                                  No shares match your search
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredPrices.map((p) => {
+                                const up = p.change >= 0
+                                return (
+                                  <TableRow key={p.id}>
+                                    <TableCell className="font-medium">
+                                      {p.symbol}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                      {formatNumber(p.lastTradedPrice)}
+                                    </TableCell>
+                                    <TableCell
+                                      className={`text-right tabular-nums ${
+                                        up
+                                          ? 'text-emerald-600'
+                                          : 'text-destructive'
+                                      }`}
+                                    >
+                                      {up ? (
+                                        <ArrowUpIcon className="inline size-3" />
+                                      ) : (
+                                        <ArrowDownIcon className="inline size-3" />
+                                      )}
+                                      {formatPercent(p.changePercentage)}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums hidden sm:table-cell text-muted-foreground">
+                                      {formatCompactVolume(p.crossingVolume)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-1">
+                                        <Button
+                                          size="sm"
+                                          variant="default"
+                                          onClick={() => openBuySheet(p)}
+                                        >
+                                          Buy
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => openSellSheet(p)}
+                                          disabled={
+                                            !holdingsBySymbol.has(p.symbol)
+                                          }
+                                        >
+                                          Sell
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* ---------------- Portfolio tab ---------------- */}
+              <TabsContent value="portfolio">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Holdings</CardTitle>
+                    <CardDescription>
+                      Live-valued positions in your demo portfolio
+                    </CardDescription>
+                    <CardAction>
+                      <Badge variant="outline">
+                        Cash {formatLKRCompact(portfolio?.balance.balance ?? 0)}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="px-0">
+                    {portfolioLoading ? (
+                      <div className="px-6 pb-6 space-y-2">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                      </div>
+                    ) : (portfolio?.holdings ?? []).length === 0 ? (
+                      <div className="px-6 pb-10 text-center text-muted-foreground">
+                        You don&apos;t own any shares yet. Switch to the Market
+                        tab to place your first buy order.
+                      </div>
+                    ) : (
                       <Table>
-                        <TableHeader className="sticky top-0 bg-card">
+                        <TableHeader>
                           <TableRow>
                             <TableHead>Symbol</TableHead>
-                            <TableHead className="text-right">Price</TableHead>
-                            <TableHead className="text-right">Change</TableHead>
-                            <TableHead className="text-right hidden sm:table-cell">
-                              Volume
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">
+                              Avg Cost
                             </TableHead>
+                            <TableHead className="text-right">Last</TableHead>
+                            <TableHead className="text-right">Value</TableHead>
+                            <TableHead className="text-right">P/L</TableHead>
                             <TableHead className="text-right">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredPrices.length === 0 ? (
-                            <TableRow>
-                              <TableCell
-                                colSpan={5}
-                                className="text-center text-muted-foreground py-8"
-                              >
-                                No shares match your search
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            filteredPrices.map((p) => {
-                              const up = p.change >= 0
-                              return (
-                                <TableRow key={p.id}>
-                                  <TableCell className="font-medium">
-                                    {p.symbol}
-                                  </TableCell>
-                                  <TableCell className="text-right tabular-nums">
-                                    {formatNumber(p.lastTradedPrice)}
-                                  </TableCell>
-                                  <TableCell
-                                    className={`text-right tabular-nums ${
-                                      up
-                                        ? 'text-emerald-600'
-                                        : 'text-destructive'
-                                    }`}
-                                  >
-                                    {up ? (
-                                      <ArrowUpIcon className="inline size-3" />
-                                    ) : (
-                                      <ArrowDownIcon className="inline size-3" />
-                                    )}
-                                    {formatPercent(p.changePercentage)}
-                                  </TableCell>
-                                  <TableCell className="text-right tabular-nums hidden sm:table-cell text-muted-foreground">
-                                    {formatCompactVolume(p.crossingVolume)}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1">
-                                      <Button
-                                        size="sm"
-                                        variant="default"
-                                        onClick={() => openBuySheet(p)}
-                                      >
-                                        Buy
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => openSellSheet(p)}
-                                        disabled={
-                                          !holdingsBySymbol.has(p.symbol)
+                          {(portfolio?.holdings ?? []).map((h) => {
+                            const live = prices.find(
+                              (p) => p.symbol === h.symbol
+                            )
+                            const last = live?.lastTradedPrice ?? h.avg_price
+                            const value = last * h.quantity
+                            const cost = h.avg_price * h.quantity
+                            const pnl = value - cost
+                            const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
+                            return (
+                              <TableRow key={h.id}>
+                                <TableCell className="font-medium">
+                                  {h.symbol}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {h.quantity.toLocaleString('en-LK')}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {formatNumber(h.avg_price)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {formatNumber(last)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {formatLKRCompact(value)}
+                                </TableCell>
+                                <TableCell
+                                  className={`text-right tabular-nums ${
+                                    pnl >= 0
+                                      ? 'text-emerald-600'
+                                      : 'text-destructive'
+                                  }`}
+                                >
+                                  {pnl >= 0 ? '+' : ''}
+                                  {formatLKRCompact(pnl)}
+                                  <span className="block text-xs">
+                                    {formatPercent(pnlPct)}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      openSellSheet(
+                                        live ?? {
+                                          id: h.id,
+                                          symbol: h.symbol,
+                                          open: h.avg_price,
+                                          high: h.avg_price,
+                                          low: h.avg_price,
+                                          lastTradedPrice: h.avg_price,
+                                          change: 0,
+                                          changePercentage: 0,
+                                          crossingVolume: 0,
+                                          tradesTime: 0,
+                                          quantity: 0
                                         }
-                                      >
-                                        Sell
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })
-                          )}
+                                      )
+                                    }
+                                  >
+                                    Sell
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
                         </TableBody>
                       </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            {/* ---------------- Portfolio tab ---------------- */}
-            <TabsContent value="portfolio">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Holdings</CardTitle>
-                  <CardDescription>
-                    Live-valued positions in your demo portfolio
-                  </CardDescription>
-                  <CardAction>
-                    <Badge variant="outline">
-                      Cash {formatLKRCompact(portfolio?.balance.balance ?? 0)}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="px-0">
-                  {portfolioLoading ? (
-                    <div className="px-6 pb-6 space-y-2">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-12 w-full" />
-                      ))}
-                    </div>
-                  ) : (portfolio?.holdings ?? []).length === 0 ? (
-                    <div className="px-6 pb-10 text-center text-muted-foreground">
-                      You don&apos;t own any shares yet. Switch to the Market
-                      tab to place your first buy order.
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Symbol</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">Avg Cost</TableHead>
-                          <TableHead className="text-right">Last</TableHead>
-                          <TableHead className="text-right">Value</TableHead>
-                          <TableHead className="text-right">P/L</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(portfolio?.holdings ?? []).map((h) => {
-                          const live = prices.find((p) => p.symbol === h.symbol)
-                          const last = live?.lastTradedPrice ?? h.avg_price
-                          const value = last * h.quantity
-                          const cost = h.avg_price * h.quantity
-                          const pnl = value - cost
-                          const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0
-                          return (
-                            <TableRow key={h.id}>
+              {/* ---------------- Trade History tab ---------------- */}
+              <TabsContent value="history">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Trade History</CardTitle>
+                    <CardDescription>
+                      Most recent 50 demo trades
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-0">
+                    {portfolioLoading ? (
+                      <div className="px-6 pb-6 space-y-2">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                      </div>
+                    ) : (portfolio?.trades ?? []).length === 0 ? (
+                      <div className="px-6 pb-10 text-center text-muted-foreground">
+                        No trades yet — your order log will appear here.
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>When</TableHead>
+                            <TableHead>Symbol</TableHead>
+                            <TableHead>Side</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Price</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(portfolio?.trades ?? []).map((t) => (
+                            <TableRow key={t.id}>
+                              <TableCell className="text-muted-foreground text-xs">
+                                {new Date(t.created_at).toLocaleString(
+                                  'en-GB',
+                                  {
+                                    dateStyle: 'short',
+                                    timeStyle: 'short'
+                                  }
+                                )}
+                              </TableCell>
                               <TableCell className="font-medium">
-                                {h.symbol}
+                                {t.symbol}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {h.quantity.toLocaleString('en-LK')}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatNumber(h.avg_price)}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatNumber(last)}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatLKRCompact(value)}
-                              </TableCell>
-                              <TableCell
-                                className={`text-right tabular-nums ${
-                                  pnl >= 0
-                                    ? 'text-emerald-600'
-                                    : 'text-destructive'
-                                }`}
-                              >
-                                {pnl >= 0 ? '+' : ''}
-                                {formatLKRCompact(pnl)}
-                                <span className="block text-xs">
-                                  {formatPercent(pnlPct)}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  size="sm"
+                              <TableCell>
+                                <Badge
                                   variant="outline"
-                                  onClick={() =>
-                                    openSellSheet(
-                                      live ?? {
-                                        id: h.id,
-                                        symbol: h.symbol,
-                                        open: h.avg_price,
-                                        high: h.avg_price,
-                                        low: h.avg_price,
-                                        lastTradedPrice: h.avg_price,
-                                        change: 0,
-                                        changePercentage: 0,
-                                        crossingVolume: 0,
-                                        tradesTime: 0,
-                                        quantity: 0
-                                      }
-                                    )
+                                  className={
+                                    t.side === 'BUY'
+                                      ? 'text-emerald-600'
+                                      : 'text-destructive'
                                   }
                                 >
-                                  Sell
-                                </Button>
+                                  {t.side}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {t.quantity.toLocaleString('en-LK')}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {formatNumber(t.price)}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums font-medium">
+                                {formatLKR(t.total)}
                               </TableCell>
                             </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* ---------------- Trade History tab ---------------- */}
-            <TabsContent value="history">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trade History</CardTitle>
-                  <CardDescription>Most recent 50 demo trades</CardDescription>
-                </CardHeader>
-                <CardContent className="px-0">
-                  {portfolioLoading ? (
-                    <div className="px-6 pb-6 space-y-2">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-12 w-full" />
-                      ))}
-                    </div>
-                  ) : (portfolio?.trades ?? []).length === 0 ? (
-                    <div className="px-6 pb-10 text-center text-muted-foreground">
-                      No trades yet — your order log will appear here.
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>When</TableHead>
-                          <TableHead>Symbol</TableHead>
-                          <TableHead>Side</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(portfolio?.trades ?? []).map((t) => (
-                          <TableRow key={t.id}>
-                            <TableCell className="text-muted-foreground text-xs">
-                              {new Date(t.created_at).toLocaleString('en-GB', {
-                                dateStyle: 'short',
-                                timeStyle: 'short'
-                              })}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {t.symbol}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  t.side === 'BUY'
-                                    ? 'text-emerald-600'
-                                    : 'text-destructive'
-                                }
-                              >
-                                {t.side}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {t.quantity.toLocaleString('en-LK')}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {formatNumber(t.price)}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums font-medium">
-                              {formatLKR(t.total)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </SidebarInset>
 
@@ -956,6 +999,206 @@ export default function TradingPage() {
         </SheetContent>
       </Sheet>
     </SidebarProvider>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: MarketPulseCard — the pulsing Open/Closed badge card.
+// Renders a coloured dot with a ping ring when the market is open, plus
+// a live countdown to the next open session when closed.
+// ---------------------------------------------------------------------------
+
+interface MarketPulseCardProps {
+  label: string
+  loading: boolean
+  colomboTime?: string
+  session?: 'PRE_OPEN' | 'OPEN' | 'CLOSED' | 'AFTER_HOURS'
+  label2?: 'Open' | 'Pre-Open' | 'Closed' | 'After Hours'
+  isOpen?: boolean
+  nextOpenAt?: string | null
+  now: Date
+  sub: string
+}
+
+function MarketPulseCard({
+  label,
+  loading,
+  colomboTime,
+  session,
+  label2,
+  isOpen,
+  nextOpenAt,
+  now,
+  sub
+}: MarketPulseCardProps) {
+  const open = isOpen ?? false
+  const dotClass = open
+    ? 'bg-emerald-500'
+    : session === 'PRE_OPEN'
+      ? 'bg-amber-500'
+      : 'bg-muted-foreground'
+
+  // Compute the "Opens in …" countdown string.
+  let countdown: string | null = null
+  if (!open && nextOpenAt) {
+    const target = new Date(nextOpenAt).getTime()
+    const ms = target - now.getTime()
+    if (ms > 0) countdown = `Opens in ${formatDuration(ms)}`
+  }
+
+  return (
+    <div className="rounded-2xl bg-card/80 backdrop-blur border border-border/60 p-4 flex flex-col gap-2 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+          CSE
+        </Badge>
+      </div>
+      {loading ? (
+        <>
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-3 w-20" />
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="relative inline-flex">
+              <span
+                className={`nb-pulse-dot inline-flex size-2.5 rounded-full ${dotClass}`}
+              />
+              {open && (
+                <span
+                  className={`nb-pulse-ring absolute inline-flex size-2.5 rounded-full ${dotClass}`}
+                />
+              )}
+            </span>
+            <span className="text-lg font-semibold font-playfair">
+              {label2 ?? (open ? 'Open' : 'Closed')}
+            </span>
+          </div>
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {colomboTime ? formatColomboClock(colomboTime) : '—'} LK
+            {countdown && (
+              <span className="ml-2 text-amber-600 dark:text-amber-400">
+                · {countdown}
+              </span>
+            )}
+          </span>
+          <span className="text-[11px] text-muted-foreground">{sub}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: AspiPulseCard — large ASPI value with up/down flash + % delta.
+// ---------------------------------------------------------------------------
+
+interface AspiPulseCardProps {
+  loading: boolean
+  aspi?: {
+    value: number
+    lowValue: number
+    highValue: number
+    change: number
+    percentage: number
+    timestamp: number | null
+  } | null
+}
+
+function AspiPulseCard({ loading, aspi }: AspiPulseCardProps) {
+  const flash = usePriceFlash(aspi?.value)
+  const up = (aspi?.change ?? 0) >= 0
+
+  return (
+    <div className="rounded-2xl bg-card/80 backdrop-blur border border-border/60 p-4 flex flex-col gap-2 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          ASPI
+        </span>
+        <Badge
+          variant="outline"
+          className={`gap-0.5 ${up ? 'text-emerald-600' : 'text-destructive'}`}
+        >
+          {up ? (
+            <ArrowUpIcon className="size-3" />
+          ) : (
+            <ArrowDownIcon className="size-3" />
+          )}
+          {formatPercent(aspi?.percentage)}
+        </Badge>
+      </div>
+      {loading ? (
+        <>
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-3 w-24" />
+        </>
+      ) : (
+        <>
+          <span
+            className={`text-lg font-semibold font-playfair tabular-nums rounded px-1 -mx-1 ${flash}`}
+          >
+            {aspi ? formatNumber(aspi.value, 2) : '—'}
+          </span>
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {aspi
+              ? `Range ${formatNumber(aspi.lowValue)} – ${formatNumber(aspi.highValue)}`
+              : 'No ASPI data'}
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: KpiPulseCard — generic KPI tile for the pulse row.
+// ---------------------------------------------------------------------------
+
+interface KpiPulseCardProps {
+  label: string
+  loading: boolean
+  value: string
+  accentClass?: string
+  sub?: React.ReactNode
+  footer?: React.ReactNode
+}
+
+function KpiPulseCard({
+  label,
+  loading,
+  value,
+  accentClass,
+  sub,
+  footer
+}: KpiPulseCardProps) {
+  return (
+    <div className="rounded-2xl bg-card/80 backdrop-blur border border-border/60 p-4 flex flex-col gap-2 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        {footer}
+      </div>
+      {loading ? (
+        <>
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-3 w-20" />
+        </>
+      ) : (
+        <>
+          <span
+            className={`text-lg font-semibold tabular-nums ${accentClass ?? ''}`}
+          >
+            {value}
+          </span>
+          <span className="text-[11px] text-muted-foreground">{sub}</span>
+        </>
+      )}
+    </div>
   )
 }
 
