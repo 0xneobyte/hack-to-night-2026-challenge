@@ -5,6 +5,8 @@ import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { RecentTransactions } from '@/components/recent-transactions'
+import { ChartIncomeExpenseDonut } from '@/components/chart-income-expense-donut'
+import { ChartCashflowArea } from '@/components/chart-cashflow-area'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -47,14 +49,16 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<ProfileWithEmail | null>(null)
   const [accounts, setAccounts] = useState<AccountRow[]>([])
   const [transactions, setTransactions] = useState<TransactionRow[]>([])
+  const [allTransactions, setAllTransactions] = useState<TransactionRow[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
-      const [profileRes, accountsRes, txRes] = await Promise.all([
+      const [profileRes, accountsRes, txRes, allTxRes] = await Promise.all([
         fetch('/api/profile'),
         fetch('/api/accounts'),
-        fetch('/api/transactions?limit=5')
+        fetch('/api/transactions?limit=5'),
+        fetch('/api/transactions')
       ])
 
       if (profileRes.ok) {
@@ -69,6 +73,11 @@ export default function DashboardPage() {
         const json = await txRes.json()
         if (json.ok)
           setTransactions(json.data?.transactions ?? json.transactions ?? [])
+      }
+      if (allTxRes.ok) {
+        const json = await allTxRes.json()
+        if (json.ok)
+          setAllTransactions(json.data?.transactions ?? json.transactions ?? [])
       }
       setLoading(false)
     }
@@ -174,6 +183,21 @@ export default function DashboardPage() {
                         </div>
                       </CardFooter>
                     </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-3 items-stretch">
+                    <div className="@xl/main:col-span-1 flex flex-col">
+                      <ChartIncomeExpenseDonut
+                        transactions={allTransactions}
+                        userAccounts={userAccountNumbers}
+                      />
+                    </div>
+                    <div className="@xl/main:col-span-2 flex flex-col">
+                      <ChartCashflowArea
+                        transactions={allTransactions}
+                        userAccounts={userAccountNumbers}
+                      />
+                    </div>
                   </div>
 
                   <div className="px-4 lg:px-6">
