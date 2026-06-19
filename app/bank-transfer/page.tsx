@@ -148,16 +148,16 @@ export default function BankTransferPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col items-center p-4 md:p-6">
+        <div className="flex flex-1 flex-col items-center p-4 md:p-6 gap-4">
           <div className="w-full max-w-xl">
+            <div className="mb-2">
+              <h1 className="text-2xl font-bold">Bank Transfer</h1>
+              <p className="text-sm text-muted-foreground">
+                Send money to another account
+              </p>
+            </div>
             {step === 'form' && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Bank Transfer</CardTitle>
-                  <CardDescription>
-                    Send money to another account
-                  </CardDescription>
-                </CardHeader>
                 <CardContent>
                   <form onSubmit={handleNext} className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">

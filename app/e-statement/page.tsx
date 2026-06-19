@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { Download } from 'lucide-react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -29,6 +30,9 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { ChartStatementRadial } from '@/components/chart-statement-radial'
+import { ChartCashflowArea } from '@/components/chart-cashflow-area'
+import { generateStatementPDF } from '@/lib/generate-statement-pdf'
 
 interface Account {
   id: number
@@ -46,6 +50,21 @@ interface Transaction {
   created_at: string
 }
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+]
+
 function formatCurrency(n: number) {
   return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
 }
@@ -61,9 +80,10 @@ function formatDate(iso: string) {
 export default function EStatementPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedAccount, setSelectedAccount] = useState('')
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [fetched, setFetched] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
+  const [selectedMonth, setSelectedMonth] = useState('all')
+  const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     fetch('/api/accounts')
@@ -77,18 +97,46 @@ export default function EStatementPage() {
       })
   }, [])
 
-  const account = accounts.find((a) => a.account_number === selectedAccount)
-
-  async function handleFetch() {
+  useEffect(() => {
     if (!selectedAccount) return
     setLoading(true)
-    const res = await fetch(`/api/transactions?account=${selectedAccount}`)
-    const json = await res.json()
-    if (json.ok)
-      setTransactions(json.data?.transactions ?? json.transactions ?? [])
-    setFetched(true)
-    setLoading(false)
-  }
+    setSelectedMonth('all')
+    fetch(`/api/transactions?account=${selectedAccount}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok)
+          setAllTransactions(json.data?.transactions ?? json.transactions ?? [])
+        setLoading(false)
+      })
+  }, [selectedAccount])
+
+  const account = accounts.find((a) => a.account_number === selectedAccount)
+
+  const availableMonths = useMemo(() => {
+    const seen = new Set<string>()
+    const months: { key: string; label: string }[] = []
+    for (const t of allTransactions) {
+      const d = new Date(t.created_at)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        months.push({
+          key,
+          label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`
+        })
+      }
+    }
+    return months.sort((a, b) => b.key.localeCompare(a.key))
+  }, [allTransactions])
+
+  const transactions = useMemo(() => {
+    if (selectedMonth === 'all') return allTransactions
+    return allTransactions.filter((t) => {
+      const d = new Date(t.created_at)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      return key === selectedMonth
+    })
+  }, [allTransactions, selectedMonth])
 
   const totalDebits = transactions
     .filter((t) => t.from_account === selectedAccount)
@@ -98,6 +146,22 @@ export default function EStatementPage() {
     .reduce((s, t) => s + Number(t.amount), 0)
   const closingBalance = account?.balance ?? 0
   const openingBalance = closingBalance + totalDebits - totalCredits
+
+  async function handleExport() {
+    if (!account) return
+    setExporting(true)
+    try {
+      await generateStatementPDF({
+        account,
+        transactions,
+        openingBalance,
+        totalCredits,
+        totalDebits
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <SidebarProvider
@@ -111,44 +175,64 @@ export default function EStatementPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col p-4 md:p-6 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>E-Statement</CardTitle>
-              <CardDescription>View your account statement</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                <div className="flex flex-col gap-2 flex-1">
-                  <Label>Select Account</Label>
-                  <Select
-                    value={selectedAccount}
-                    onValueChange={setSelectedAccount}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((a) => (
-                        <SelectItem
-                          key={a.account_number}
-                          value={a.account_number}
-                        >
-                          {a.account_name} ({a.account_number})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleFetch} disabled={loading}>
-                  {loading ? 'Loading...' : 'View Statement'}
-                </Button>
+        <div className="flex flex-1 flex-col p-4 md:p-6 gap-6">
+          <div>
+            <h1 className="text-2xl font-bold">E-Statement</h1>
+            <p className="text-sm text-muted-foreground">
+              View your account statement by month
+            </p>
+          </div>
+
+          {/* Filters */}
+          <Card size="sm" className="shadow-sm">
+            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5 sm:gap-2 sm:min-w-[280px] sm:max-w-md">
+                <Label className="text-muted-foreground">Account</Label>
+                <Select
+                  value={selectedAccount}
+                  onValueChange={setSelectedAccount}
+                >
+                  <SelectTrigger className="h-10 w-full min-w-0 sm:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {accounts.map((a) => (
+                      <SelectItem
+                        key={a.account_number}
+                        value={a.account_number}
+                      >
+                        {a.account_name} ({a.account_number})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex w-fit flex-col gap-1.5 sm:gap-2 sm:min-w-[160px]">
+                <Label className="text-muted-foreground">Month</Label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="h-10 w-full min-w-[9rem] sm:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    <SelectItem value="all">All time</SelectItem>
+                    {availableMonths.map((m) => (
+                      <SelectItem key={m.key} value={m.key}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
 
-          {fetched && account && (
+          {loading ? (
+            <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+              Loading statement...
+            </div>
+          ) : account ? (
             <>
+              {/* Summary cards */}
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Card>
                   <CardContent className="pt-6">
@@ -192,12 +276,52 @@ export default function EStatementPage() {
                 </Card>
               </div>
 
+              {/* Charts row */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-stretch">
+                <div className="flex flex-col">
+                  <ChartStatementRadial
+                    totalCredits={totalCredits}
+                    totalDebits={totalDebits}
+                    accountName={`${account.account_name} — ${account.account_number}`}
+                  />
+                </div>
+                <div className="md:col-span-2 flex flex-col">
+                  <ChartCashflowArea
+                    transactions={allTransactions}
+                    userAccounts={[selectedAccount]}
+                  />
+                </div>
+              </div>
+
+              {/* Transactions table */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Transaction Details</CardTitle>
-                  <CardDescription>
-                    {account.account_name} — {account.account_number}
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Transaction Details</CardTitle>
+                    <CardDescription>
+                      {account.account_name} — {account.account_number}
+                      {selectedMonth !== 'all' && (
+                        <>
+                          {' '}
+                          &mdash;{' '}
+                          {
+                            availableMonths.find((m) => m.key === selectedMonth)
+                              ?.label
+                          }
+                        </>
+                      )}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="shrink-0"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {exporting ? 'Generating…' : 'Download PDF'}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -253,7 +377,7 @@ export default function EStatementPage() {
                 </CardContent>
               </Card>
             </>
-          )}
+          ) : null}
         </div>
       </SidebarInset>
     </SidebarProvider>
