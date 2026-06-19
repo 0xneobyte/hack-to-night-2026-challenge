@@ -183,43 +183,48 @@ export default function EStatementPage() {
             </p>
           </div>
 
-          {/* Filters row */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[280px] sm:max-w-md">
-              <Label>Account</Label>
-              <Select
-                value={selectedAccount}
-                onValueChange={setSelectedAccount}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.account_number} value={a.account_number}>
-                      {a.account_name} ({a.account_number})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[160px]">
-              <Label>Month</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All time</SelectItem>
-                  {availableMonths.map((m) => (
-                    <SelectItem key={m.key} value={m.key}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Filters */}
+          <Card size="sm" className="shadow-sm">
+            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5 sm:gap-2 sm:min-w-[280px] sm:max-w-md">
+                <Label className="text-muted-foreground">Account</Label>
+                <Select
+                  value={selectedAccount}
+                  onValueChange={setSelectedAccount}
+                >
+                  <SelectTrigger className="h-10 w-full min-w-0 sm:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {accounts.map((a) => (
+                      <SelectItem
+                        key={a.account_number}
+                        value={a.account_number}
+                      >
+                        {a.account_name} ({a.account_number})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex w-fit flex-col gap-1.5 sm:gap-2 sm:min-w-[160px]">
+                <Label className="text-muted-foreground">Month</Label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="h-10 w-full min-w-[9rem] sm:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    <SelectItem value="all">All time</SelectItem>
+                    {availableMonths.map((m) => (
+                      <SelectItem key={m.key} value={m.key}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
           {loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
