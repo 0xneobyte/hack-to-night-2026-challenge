@@ -1,5 +1,24 @@
+import { apiError, apiSuccess, serverError } from '@/lib/api-error'
 import { createClient } from '@/lib/supabase/server'
-import { apiError, serverError } from '@/lib/api-error'
+import type { SearchResult } from '@/lib/types'
+import { sanitizeSearchQuery } from '@/lib/validation'
+
+interface SearchSuccessData {
+  results: SearchResult[]
+}
+
+interface AccountMatch {
+  id: number
+  account_number: string
+  account_name: string
+}
+
+interface TransactionMatch {
+  id: number
+  from_account: string
+  to_account: string
+  description: string | null
+}
 
 export async function GET(request: Request) {
   try {
@@ -13,48 +32,55 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const q = searchParams.get('q') || ''
+    const rawQ = searchParams.get('q')
+    const q = sanitizeSearchQuery(rawQ)
 
-    if (!q.trim()) {
-      return Response.json({ ok: true, results: [] })
+    if (!q) {
+      return apiSuccess<SearchSuccessData>({ results: [] })
     }
 
-    const { data: accounts, error: accErr } = await supabase
-      .from('accounts')
-      .select('id, account_number, account_name')
-      .or(`account_number.ilike.%${q}%,account_name.ilike.%${q}%`)
-      .limit(10)
+    // Use the typed `.ilike()` builder for the description filter, and
+    // a sanitized `.or()` for accounts. Both are bounded by `.limit(10)`
+    // to keep responses small.
+    //
+    // We rely on RLS to scope results to the calling user's own data
+    // for accounts; transactions are scoped to accounts the user owns.
+    const [{ data: accounts, error: accErr }, { data: txns, error: txErr }] =
+      await Promise.all([
+        supabase
+          .from('accounts')
+          .select('id, account_number, account_name')
+          .or(`account_number.ilike.%${q}%,account_name.ilike.%${q}%`)
+          .limit(10),
+        supabase
+          .from('transactions')
+          .select('id, from_account, to_account, description')
+          .ilike('description', `%${q}%`)
+          .limit(10)
+      ])
 
-    if (accErr) {
-      return serverError(accErr)
-    }
+    if (accErr) return serverError(accErr)
+    if (txErr) return serverError(txErr)
 
-    const { data: txns, error: txErr } = await supabase
-      .from('transactions')
-      .select('id, from_account, to_account, description')
-      .ilike('description', `%${q}%`)
-      .limit(10)
+    const accountMatches = (accounts ?? []) as AccountMatch[]
+    const txnMatches = (txns ?? []) as TransactionMatch[]
 
-    if (txErr) {
-      return serverError(txErr)
-    }
-
-    const results = [
-      ...(accounts || []).map((a) => ({
-        type: 'account',
+    const results: SearchResult[] = [
+      ...accountMatches.map((a) => ({
+        type: 'account' as const,
         id: String(a.id),
         label: a.account_number,
         detail: a.account_name
       })),
-      ...(txns || []).map((t) => ({
-        type: 'transaction',
+      ...txnMatches.map((t) => ({
+        type: 'transaction' as const,
         id: String(t.id),
         label: `${t.from_account} -> ${t.to_account}`,
         detail: t.description
       }))
     ]
 
-    return Response.json({ ok: true, results })
+    return apiSuccess<SearchSuccessData>({ results })
   } catch (reason) {
     return serverError(reason)
   }
