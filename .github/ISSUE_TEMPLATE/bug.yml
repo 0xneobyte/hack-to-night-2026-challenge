@@ -1,0 +1,81 @@
+name: 🐛 Bug report
+description: Report something that's broken or behaves incorrectly
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report!
+        Please check existing open issues first to avoid duplicates.
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      description: Which phase of the implementation plan does this affect?
+      options:
+        - Phase 0 — Quick wins
+        - Phase 1 — Supabase foundation
+        - Phase 2 — Frontend wiring
+        - Phase 3 — New features
+        - Not sure / cross-cutting
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical — data loss, security breach, or app unusable
+        - High — feature broken, no workaround
+        - Medium — feature broken, workaround exists
+        - Low — cosmetic or minor annoyance
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: 'When I clicked the transfer button with...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list, as specific as possible.
+      placeholder: |
+        1. Sign in as ...
+        2. Go to /dashboard
+        3. Click ...
+        4. See error
+    validations:
+      required: true
+
+  - type: input
+    id: bug-id
+    attributes:
+      label: Bug ID (from bug-report.md)
+      description: If this maps to a tracked bug in bug-report.md, put its ID here (e.g. S1, L2, F5).
+      placeholder: 'e.g. F7'
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        Browser: Chrome 125
+        OS: macOS 14.5
+        Node: 24.0.0
+        Branch: main @ <commit-sha>

@@ -1,0 +1,70 @@
+name: 📋 Phase task
+description: Track a specific task from the implementation plan
+labels: []
+body:
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - Phase 0 — Quick wins
+        - Phase 1 — Supabase foundation
+        - Phase 2 — Frontend wiring
+        - Phase 3 — New features
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend
+        - Backend / API
+        - Database / Supabase
+        - DevOps
+        - Documentation
+    validations:
+      required: true
+
+  - type: input
+    id: bug-ids
+    attributes:
+      label: Bug IDs resolved (from bug-report.md)
+      description: Comma-separated list, e.g. "S1, S4, L1"
+      placeholder: 'e.g. S1, S4, L1'
+
+  - type: textarea
+    id: overview
+    attributes:
+      label: Overview
+      description: One paragraph describing what this task does and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Bullet list of concrete deliverables.
+      placeholder: |
+        - Create ...
+        - Rewrite ...
+        - Delete ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: depends-on
+    attributes:
+      label: Depends on
+      description: Other issues that must be closed first. Use "#NN" syntax.
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: How will we know this is done?
+      placeholder: |
+        - `curl` the endpoint and check ...
+        - Open the page and verify ...
