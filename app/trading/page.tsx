@@ -3,9 +3,9 @@
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  CandlestickChartIcon,
   ClockIcon,
   HistoryIcon,
+  LineChartIcon,
   RefreshCwIcon,
   SearchIcon,
   ShoppingCartIcon,
@@ -405,13 +405,13 @@ export default function TradingPage() {
         <SiteHeader />
         <div className="flex flex-1 flex-col gap-4">
           {/* ---------------- Premium Hero ---------------- */}
-          <section className="nb-hero-gradient relative overflow-hidden border-b">
+          <section className="bg-card border-b">
             <div className="px-4 py-6 md:px-8 md:py-8 flex flex-col gap-5">
               {/* Top row: brand + live clock + refresh */}
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-                    <CandlestickChartIcon className="size-6" />
+                    <LineChartIcon className="size-6" />
                   </div>
                   <div>
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-playfair">
@@ -881,7 +881,7 @@ export default function TradingPage() {
         </div>
       </SidebarInset>
 
-      {/* ---------------- Trade Sheet ---------------- */}
+      {/* ---------------- Trade Sheet — premium side panel ---------------- */}
       <Sheet
         open={sheetOpen}
         onOpenChange={(v) => {
@@ -889,63 +889,109 @@ export default function TradingPage() {
           if (!v) setSheetStock(null)
         }}
       >
-        <SheetContent className="w-full sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              {sheetMode === 'BUY' ? (
-                <ShoppingCartIcon className="size-5" />
-              ) : (
-                <TagIcon className="size-5" />
-              )}
-              {sheetMode === 'BUY' ? 'Buy' : 'Sell'} {sheetStock?.symbol ?? ''}
-            </SheetTitle>
-            <SheetDescription>
-              {sheetMode === 'BUY'
-                ? 'Place a virtual buy order at the live market price.'
-                : 'Place a virtual sell order at the live market price.'}
-            </SheetDescription>
-          </SheetHeader>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md p-0 gap-0 flex flex-col"
+        >
+          {/* Header band — coloured by mode for instant visual context */}
+          <div
+            className={`px-6 pt-6 pb-5 border-b ${
+              sheetMode === 'BUY'
+                ? 'bg-emerald-500/10 border-emerald-500/20'
+                : 'bg-destructive/10 border-destructive/20'
+            }`}
+          >
+            <SheetHeader className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex size-10 items-center justify-center rounded-xl text-white shadow-md ${
+                      sheetMode === 'BUY' ? 'bg-emerald-600' : 'bg-destructive'
+                    }`}
+                  >
+                    {sheetMode === 'BUY' ? (
+                      <ShoppingCartIcon className="size-5" />
+                    ) : (
+                      <TagIcon className="size-5" />
+                    )}
+                  </div>
+                  <div>
+                    <SheetTitle className="text-lg font-semibold tracking-tight">
+                      {sheetMode === 'BUY' ? 'Buy' : 'Sell'} Order
+                    </SheetTitle>
+                    <SheetDescription className="text-xs">
+                      {sheetStock?.symbol ?? ''} · Live CSE market price
+                    </SheetDescription>
+                  </div>
+                </div>
+              </div>
+            </SheetHeader>
+          </div>
 
           {sheetStock && (
             <form
               onSubmit={handleSubmitOrder}
-              className="flex flex-1 flex-col gap-4 px-4"
+              className="flex flex-1 flex-col overflow-y-auto"
             >
-              <div className="rounded-lg border p-3 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Last Price</span>
-                  <span className="font-medium tabular-nums">
-                    {formatNumber(sheetStock.lastTradedPrice)}
-                  </span>
+              {/* Stock summary — large symbol + price block */}
+              <div className="px-6 py-5 border-b">
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Symbol
+                    </p>
+                    <p className="text-2xl font-bold font-playfair tabular-nums">
+                      {sheetStock.symbol}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Last Price
+                    </p>
+                    <p className="text-2xl font-bold font-playfair tabular-nums">
+                      {formatNumber(sheetStock.lastTradedPrice)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Day Change</span>
-                  <span
-                    className={`font-medium tabular-nums ${
+                <div className="mt-2 flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={`gap-0.5 ${
                       sheetStock.change >= 0
-                        ? 'text-emerald-600'
-                        : 'text-destructive'
+                        ? 'text-emerald-600 border-emerald-500/30'
+                        : 'text-destructive border-destructive/30'
                     }`}
                   >
+                    {sheetStock.change >= 0 ? (
+                      <ArrowUpIcon className="size-3" />
+                    ) : (
+                      <ArrowDownIcon className="size-3" />
+                    )}
                     {formatPercent(sheetStock.changePercentage)}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Day change
                   </span>
-                </div>
-                {sheetMode === 'SELL' &&
-                  holdingsBySymbol.has(sheetStock.symbol) && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">You Own</span>
-                      <span className="font-medium tabular-nums">
+                  {sheetMode === 'SELL' &&
+                    holdingsBySymbol.has(sheetStock.symbol) && (
+                      <Badge variant="outline" className="ml-auto gap-1">
+                        You own{' '}
                         {holdingsBySymbol
                           .get(sheetStock.symbol)!
-                          .quantity.toLocaleString('en-LK')}{' '}
-                        shares
-                      </span>
-                    </div>
-                  )}
+                          .quantity.toLocaleString('en-LK')}
+                      </Badge>
+                    )}
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="qty">Quantity</Label>
+              {/* Quantity input — large + quick-pick chips */}
+              <div className="px-6 py-5 border-b">
+                <Label
+                  htmlFor="qty"
+                  className="text-xs uppercase tracking-wide text-muted-foreground mb-2"
+                >
+                  Quantity
+                </Label>
                 <Input
                   id="qty"
                   type="number"
@@ -953,50 +999,96 @@ export default function TradingPage() {
                   step={1}
                   value={orderQty}
                   onChange={(e) => setOrderQty(e.target.value)}
-                  placeholder="Number of shares"
+                  placeholder="0"
                   required
                   autoFocus
+                  className="h-14 text-2xl font-semibold tabular-nums text-center font-playfair"
                 />
-              </div>
-
-              <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Estimated Total</span>
-                  <span className="font-medium tabular-nums">
-                    {formatLKR(
-                      (Number(orderQty) || 0) * sheetStock.lastTradedPrice
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Cash After Order
-                  </span>
-                  <span className="font-medium tabular-nums">
-                    {formatLKR(
-                      sheetMode === 'BUY'
-                        ? effectiveCashBalance -
-                            (Number(orderQty) || 0) * sheetStock.lastTradedPrice
-                        : effectiveCashBalance +
-                            (Number(orderQty) || 0) * sheetStock.lastTradedPrice
-                    )}
-                  </span>
+                <div className="mt-3 flex gap-2">
+                  {[10, 50, 100, 500].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setOrderQty(String(n))}
+                      className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                    >
+                      {n}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <SheetFooter className="mt-auto gap-2">
+              {/* Order summary — sticky-feeling block */}
+              <div className="px-6 py-5 bg-muted/30 border-b">
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Price per share
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {formatLKR(sheetStock.lastTradedPrice)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Quantity</span>
+                    <span className="font-medium tabular-nums">
+                      {(Number(orderQty) || 0).toLocaleString('en-LK')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-border pt-2.5 mt-2.5">
+                    <span className="font-medium">Estimated Total</span>
+                    <span className="font-semibold tabular-nums">
+                      {formatLKR(
+                        (Number(orderQty) || 0) * sheetStock.lastTradedPrice
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Cash After Order
+                    </span>
+                    <span
+                      className={`font-medium tabular-nums ${
+                        sheetMode === 'BUY' &&
+                        effectiveCashBalance -
+                          (Number(orderQty) || 0) * sheetStock.lastTradedPrice <
+                          0
+                          ? 'text-destructive'
+                          : ''
+                      }`}
+                    >
+                      {formatLKR(
+                        sheetMode === 'BUY'
+                          ? effectiveCashBalance -
+                              (Number(orderQty) || 0) *
+                                sheetStock.lastTradedPrice
+                          : effectiveCashBalance +
+                              (Number(orderQty) || 0) *
+                                sheetStock.lastTradedPrice
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer — sticky action buttons */}
+              <SheetFooter className="mt-auto px-6 py-4 bg-background border-t flex-row gap-3">
                 <Button
                   type="button"
                   variant="outline"
+                  size="lg"
                   onClick={() => setSheetOpen(false)}
                   disabled={submitting}
+                  className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
+                  size="lg"
                   variant={sheetMode === 'BUY' ? 'default' : 'destructive'}
                   disabled={submitting}
+                  className="flex-[2]"
                 >
                   {submitting
                     ? 'Placing order…'
