@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  ArrowLeftRightIcon,
   FileTextIcon,
   HistoryIcon,
   LandmarkIcon,
@@ -10,6 +9,7 @@ import {
   PieChartIcon,
   QrCodeIcon,
   ReceiptIcon,
+  SendIcon,
   Settings2Icon,
   WalletIcon
 } from 'lucide-react'
@@ -66,9 +66,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     { title: 'Dashboard', url: '/dashboard', icon: <LayoutDashboardIcon /> },
     { title: 'Accounts', url: '/bank-accounts', icon: <WalletIcon /> },
     {
-      title: 'Bank Transfer',
+      title: 'Send',
       url: '/bank-transfer',
-      icon: <ArrowLeftRightIcon />
+      icon: <SendIcon />
     },
     { title: 'Pay Bills', url: '/pay-bills', icon: <ReceiptIcon /> },
     { title: 'QR Pay', url: '/qr-pay', icon: <QrCodeIcon /> },
