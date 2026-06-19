@@ -1,6 +1,7 @@
 'use client'
 
 import { SignupForm } from '@/components/signup-form'
+import { LandmarkIcon } from 'lucide-react'
 
 export default function SignupPage() {
   return (
@@ -10,6 +11,7 @@ export default function SignupPage() {
           href="/"
           className="flex items-center gap-2 self-center font-semibold text-lg"
         >
+          <LandmarkIcon className="size-5" />
           Nova Bank
         </a>
         <SignupForm />
