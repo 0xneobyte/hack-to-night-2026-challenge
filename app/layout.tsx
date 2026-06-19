@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
-import { Poppins, Geist_Mono } from 'next/font/google'
+import { Geist_Mono, Poppins } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 import { cn } from '@/lib/utils'
@@ -39,7 +40,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            {children}
+            <Toaster richColors closeButton position="top-right" />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

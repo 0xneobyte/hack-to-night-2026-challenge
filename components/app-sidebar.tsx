@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  CandlestickChartIcon,
   FileTextIcon,
   HistoryIcon,
   LandmarkIcon,
@@ -95,6 +96,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           title: 'Utility Predictor',
           url: '/utility-predictor',
           icon: <ZapIcon />
+        }
+      ]
+    },
+    {
+      label: 'Invest',
+      items: [
+        {
+          title: 'Stock Trading',
+          url: '/trading',
+          icon: <CandlestickChartIcon />
         }
       ]
     }
