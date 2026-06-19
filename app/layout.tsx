@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Bai_Jamjuree, Inter } from 'next/font/google'
+import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 import { cn } from '@/lib/utils'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
-
 const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin']
+  subsets: ['latin'],
+  variable: '--font-sans'
 })
 
 const geistMono = Geist_Mono({
@@ -15,15 +14,15 @@ const geistMono = Geist_Mono({
   subsets: ['latin']
 })
 
-const bai = Bai_Jamjuree({
-  variable: '--font-bai',
-  weight: ['200', '300', '400', '500', '600', '700'],
-  subsets: ['latin']
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-playfair'
 })
 
 export const metadata: Metadata = {
-  title: 'Smart Spend - Banking Solutions',
-  description: 'Manage your finances with Smart Spend'
+  title: 'Nova Bank',
+  description: 'Secure online banking by Nova Bank'
 }
 
 export default function RootLayout({
@@ -35,16 +34,16 @@ export default function RootLayout({
     <html
       lang="en"
       className={cn(
-        'h-full',
-        'antialiased',
+        'h-full antialiased',
         geistSans.variable,
         geistMono.variable,
-        bai.variable,
-        'font-sans',
-        inter.variable
+        playfair.variable,
+        'font-sans'
       )}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   )
 }

@@ -1,10 +1,21 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import Image from 'next/image'
-import Sidebar from '@/components/sidebar'
-import { Search, Bell } from '@/components/Icons'
-import styles from './accounts.module.css'
+import { useEffect, useState } from 'react'
+import { AppSidebar } from '@/components/app-sidebar'
+import { SiteHeader } from '@/components/site-header'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { CreditCardIcon, PencilIcon, ArrowLeftIcon } from 'lucide-react'
 
 interface Account {
   id: number
@@ -13,8 +24,11 @@ interface Account {
   balance: number
   created_at: string
 }
-
 type Screen = 'list' | 'edit'
+
+function formatCurrency(n: number) {
+  return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+}
 
 export default function AccountsPage() {
   const [screen, setScreen] = useState<Screen>('list')
@@ -24,163 +38,154 @@ export default function AccountsPage() {
   const [nickname, setNickname] = useState('')
 
   useEffect(() => {
-    loadAccounts()
+    fetch('/api/accounts')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) setAccounts(json.data?.accounts ?? json.accounts ?? [])
+        setLoading(false)
+      })
   }, [])
 
-  async function loadAccounts() {
-    setLoading(true)
-    const res = await fetch('/api/accounts')
-    const json = await res.json()
-    if (json.ok) {
-      setAccounts(json.data?.accounts ?? json.accounts ?? [])
-    }
-    setLoading(false)
-  }
-
-  function formatCurrency(n: number) {
-    return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
-  }
-
-  function goToEdit(account: Account) {
-    setEditingAccount(account)
-    setNickname(account.account_name)
+  function goToEdit(acc: Account) {
+    setEditingAccount(acc)
+    setNickname(acc.account_name)
     setScreen('edit')
-  }
-
-  function handleCancel() {
-    setEditingAccount(null)
-    setNickname('')
-    setScreen('list')
   }
 
   function handleEditNickname(e: React.FormEvent) {
     e.preventDefault()
-    if (!nickname.trim() || nickname.trim().length < 2) {
-      alert('Nickname must be at least 2 characters')
-      return
-    }
+    if (!nickname.trim() || nickname.trim().length < 2) return
     alert(`Nickname updated to: ${nickname}`)
-    handleCancel()
-  }
-
-  function maskAccount(num: string) {
-    return `......${num.slice(-4)}`
+    setScreen('list')
   }
 
   return (
-    <main className={styles.accountsPage}>
-      <Sidebar />
-      <section className={styles.content}>
-        <header className={styles.contentHeader}>
-          <h1 className={styles.pageTitle}>Accounts</h1>
-          <div className={styles.headerActions}>
-            <Search size={22} />
-            <Bell size={22} />
-            <div className={styles.avatarPlaceholder}>
-              <Image
-                src="/person-logo.png"
-                alt="Profile"
-                width={40}
-                height={40}
-                style={{ objectFit: 'cover', borderRadius: '50%' }}
-              />
-            </div>
-          </div>
-        </header>
+    <SidebarProvider
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 72)',
+          '--header-height': 'calc(var(--spacing) * 12)'
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col p-4 md:p-6 gap-4">
+          {screen === 'list' && (
+            <>
+              <div>
+                <h1 className="text-2xl font-bold">Accounts</h1>
+                <p className="text-sm text-muted-foreground">
+                  Manage your bank accounts
+                </p>
+              </div>
+              {loading ? (
+                <p className="text-muted-foreground py-8 text-center">
+                  Loading accounts...
+                </p>
+              ) : accounts.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center gap-3 py-10">
+                    <CreditCardIcon className="size-10 text-muted-foreground" />
+                    <p className="text-muted-foreground">No accounts found</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {accounts.map((acc) => (
+                    <Card key={acc.id}>
+                      <CardHeader className="flex flex-row items-start justify-between">
+                        <div>
+                          <CardTitle>{acc.account_name}</CardTitle>
+                          <CardDescription>
+                            ......{acc.account_number.slice(-4)}
+                          </CardDescription>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => goToEdit(acc)}
+                        >
+                          <PencilIcon className="size-4" />
+                        </Button>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-semibold font-playfair tabular-nums">
+                          {formatCurrency(acc.balance)}
+                        </p>
+                        <Badge variant="outline" className="mt-2">
+                          <CreditCardIcon className="size-3" />{' '}
+                          {acc.account_number}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
 
-        {screen === 'list' && (
-          <div className={styles.cardsContainer}>
-            {loading ? (
-              <p style={{ color: '#666' }}>Loading accounts...</p>
-            ) : accounts.length === 0 ? (
-              <p style={{ color: '#666' }}>No accounts found</p>
-            ) : (
-              accounts.map((acc) => (
-                <div key={acc.id} className={styles.accountCard}>
-                  <div
-                    className={styles.iconEdit}
-                    onClick={() => goToEdit(acc)}
-                  >
-                    ✏️
+          {screen === 'edit' && editingAccount && (
+            <div className="max-w-md mx-auto w-full">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setScreen('list')}
+                    >
+                      <ArrowLeftIcon className="size-4" />
+                    </Button>
+                    <CardTitle>Edit Account Nickname</CardTitle>
                   </div>
-                  <div className={styles.accountCardContent}>
-                    <h2 className={styles.accountName}>{acc.account_name}</h2>
-                    <div className={styles.accountAvatar}>
-                      <Image
-                        src="/account-logo.png"
-                        alt="profile"
-                        width={100}
-                        height={100}
-                        style={{ objectFit: 'cover', borderRadius: '50%' }}
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={handleEditNickname}
+                    className="flex flex-col gap-4"
+                  >
+                    <div className="flex flex-col gap-2">
+                      <Label>Account Number</Label>
+                      <Input value={editingAccount.account_number} disabled />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Balance</Label>
+                      <Input
+                        value={formatCurrency(editingAccount.balance)}
+                        disabled
                       />
                     </div>
-                    <p className={styles.accountDetails}>
-                      {maskAccount(acc.account_number)}
-                      <br />
-                      {formatCurrency(acc.balance)}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {screen === 'edit' && editingAccount && (
-          <div className={styles.formContainer}>
-            <div className={styles.formCard}>
-              <div className={styles.formHeader}>
-                <h2 className={styles.formTitle}>Edit Account Nickname</h2>
-              </div>
-              <form onSubmit={handleEditNickname} className={styles.formFields}>
-                <div className={styles.formGroup}>
-                  <label htmlFor="accountNumber">Account Number:</label>
-                  <input
-                    type="text"
-                    id="accountNumber"
-                    value={editingAccount.account_number}
-                    disabled
-                    className={styles.inputDisabled}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label htmlFor="balance">Balance:</label>
-                  <input
-                    type="text"
-                    id="balance"
-                    value={formatCurrency(editingAccount.balance)}
-                    disabled
-                    className={styles.inputDisabled}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label htmlFor="nickname">Nickname:</label>
-                  <input
-                    type="text"
-                    id="nickname"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    placeholder="Enter new nickname"
-                    required
-                  />
-                </div>
-                <div className={styles.formActionsBottom}>
-                  <button
-                    type="button"
-                    className={styles.btnCancel}
-                    onClick={handleCancel}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.btnUpdate}>
-                    UPDATE
-                  </button>
-                </div>
-              </form>
+                    <div className="flex flex-col gap-2">
+                      <Label>Nickname</Label>
+                      <Input
+                        value={nickname}
+                        onChange={(e) => setNickname(e.target.value)}
+                        placeholder="Enter new nickname"
+                        required
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => setScreen('list')}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" className="flex-1">
+                        Update
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        )}
-      </section>
-    </main>
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
