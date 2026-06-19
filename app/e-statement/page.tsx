@@ -1,17 +1,18 @@
 'use client'
 
+import { Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
-  CardTitle,
-  CardDescription
+  CardTitle
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import {
   Table,
   TableBody,
@@ -28,7 +30,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+import { generateStatementPDF } from '@/lib/generate-statement-pdf'
 
 interface Account {
   id: number
@@ -64,6 +66,7 @@ export default function EStatementPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [fetched, setFetched] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     fetch('/api/accounts')
@@ -98,6 +101,22 @@ export default function EStatementPage() {
     .reduce((s, t) => s + Number(t.amount), 0)
   const closingBalance = account?.balance ?? 0
   const openingBalance = closingBalance + totalDebits - totalCredits
+
+  async function handleExport() {
+    if (!account) return
+    setExporting(true)
+    try {
+      await generateStatementPDF({
+        account,
+        transactions,
+        openingBalance,
+        totalCredits,
+        totalDebits
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <SidebarProvider
@@ -195,11 +214,23 @@ export default function EStatementPage() {
               </div>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Transaction Details</CardTitle>
-                  <CardDescription>
-                    {account.account_name} — {account.account_number}
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Transaction Details</CardTitle>
+                    <CardDescription>
+                      {account.account_name} — {account.account_number}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="shrink-0"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {exporting ? 'Generating…' : 'Download PDF'}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Table>
