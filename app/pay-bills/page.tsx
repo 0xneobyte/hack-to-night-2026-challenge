@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Sidebar from '../../components/sidebar'
 import {
@@ -11,11 +11,7 @@ import {
   ChevronLeft
 } from '../../components/Icons'
 
-type Biller = {
-  id: string
-  name: string
-  logo: string
-}
+type Biller = { id: string; name: string; logo: string }
 
 const billers: Biller[] = [
   { id: 'water', name: 'Water Board', logo: '/billers/water-board.png' },
@@ -32,9 +28,14 @@ const billers: Biller[] = [
   { id: 'hsbc', name: 'HSBC', logo: '/billers/hsbc.png' }
 ]
 
-type Screen = 'select' | 'form' | 'success' | 'failed'
+interface Account {
+  id: number
+  account_number: string
+  account_name: string
+  balance: number
+}
 
-const MOCK_BALANCE = 5000
+type Screen = 'select' | 'form' | 'success' | 'failed'
 
 type FormErrors = {
   accountNumber?: string
@@ -45,13 +46,33 @@ type FormErrors = {
 export default function PayBillsPage() {
   const [screen, setScreen] = useState<Screen>('select')
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null)
-  const [accountNumber, setAccountNumber] = useState('')
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [fromAccount, setFromAccount] = useState('')
   const [billId, setBillId] = useState('')
   const [dueAmount, setDueAmount] = useState('')
   const [remarks, setRemarks] = useState('')
   const [confirmationNumber, setConfirmationNumber] = useState('')
   const [failReason, setFailReason] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/accounts')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) {
+          const accs = json.data?.accounts ?? json.accounts ?? []
+          setAccounts(accs)
+          if (accs.length > 0) setFromAccount(accs[0].account_number)
+        }
+      })
+  }, [])
+
+  const selectedAccount = accounts.find((a) => a.account_number === fromAccount)
+
+  function formatCurrency(n: number) {
+    return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+  }
 
   function handleSelectBiller(biller: Biller) {
     setSelectedBiller(biller)
@@ -61,60 +82,67 @@ export default function PayBillsPage() {
 
   function validateForm(): boolean {
     const newErrors: FormErrors = {}
-
-    if (!accountNumber.trim()) {
-      newErrors.accountNumber = 'Account number is required'
-    } else if (!/^[0-9]{6,16}$/.test(accountNumber.trim())) {
-      newErrors.accountNumber = 'Enter a valid account number (6–16 digits)'
-    }
-
-    if (!billId.trim()) {
-      newErrors.billId = 'Bill ID is required'
-    } else if (billId.trim().length < 3) {
+    if (!billId.trim()) newErrors.billId = 'Bill ID is required'
+    else if (billId.trim().length < 3)
       newErrors.billId = 'Bill ID looks too short'
-    }
-
-    if (!dueAmount.trim()) {
-      newErrors.dueAmount = 'Due amount is required'
-    } else {
-      const amount = Number(dueAmount)
-      if (Number.isNaN(amount) || amount <= 0) {
+    if (!dueAmount.trim()) newErrors.dueAmount = 'Due amount is required'
+    else {
+      const amt = Number(dueAmount)
+      if (Number.isNaN(amt) || amt <= 0)
         newErrors.dueAmount = 'Enter a valid amount greater than 0'
-      }
     }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  function handlePayNow() {
-    if (!validateForm()) {
-      return
-    }
+  async function handlePayNow() {
+    if (!validateForm()) return
 
-    const amount = Number(dueAmount)
+    setLoading(true)
+    const res = await fetch('/api/transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromAccount,
+        toAccount: billId,
+        amount: Number(dueAmount),
+        description: `Bill payment: ${selectedBiller?.name}${remarks ? ' - ' + remarks : ''}`
+      })
+    })
 
-    if (amount > MOCK_BALANCE) {
+    const json = await res.json()
+    setLoading(false)
+
+    if (json.ok) {
+      const txId = json.data?.transaction_id ?? json.transaction_id
+      setConfirmationNumber(String(txId))
+      setScreen('success')
+    } else {
+      const msg = json.data?.message ?? json.message ?? 'Payment failed'
+      const bal = selectedAccount?.balance
       setFailReason(
-        `Insufficient Balance\nCurrent Balance is: Rs.${MOCK_BALANCE}`
+        bal != null ? `${msg}\nCurrent Balance: ${formatCurrency(bal)}` : msg
       )
       setScreen('failed')
-      return
     }
-
-    const confNum = Math.floor(10000000 + Math.random() * 90000000).toString()
-    setConfirmationNumber(confNum)
-    setScreen('success')
   }
 
   function resetToHome() {
     setScreen('select')
     setSelectedBiller(null)
-    setAccountNumber('')
     setBillId('')
     setDueAmount('')
     setRemarks('')
     setErrors({})
+    // Refresh accounts to get updated balance
+    fetch('/api/accounts')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) {
+          const accs = json.data?.accounts ?? json.accounts ?? []
+          setAccounts(accs)
+        }
+      })
   }
 
   return (
@@ -143,6 +171,12 @@ export default function PayBillsPage() {
           <div className="card-wrapper">
             {screen === 'select' && (
               <div className="card">
+                {selectedAccount && (
+                  <p className="account-balance">
+                    Paying from: <strong>{selectedAccount.account_name}</strong>{' '}
+                    — {formatCurrency(selectedAccount.balance)}
+                  </p>
+                )}
                 <div className="biller-grid">
                   {billers.map((biller) => (
                     <button
@@ -172,10 +206,8 @@ export default function PayBillsPage() {
                   className="back-btn"
                   onClick={() => setScreen('select')}
                 >
-                  <ChevronLeft size={16} />
-                  Back to billers
+                  <ChevronLeft size={16} /> Back to billers
                 </button>
-
                 <div className="biller-header">
                   <div className="biller-icon small logo-circle">
                     <Image
@@ -191,36 +223,40 @@ export default function PayBillsPage() {
                   </span>
                 </div>
 
-                <div className="field">
-                  <label>Account number</label>
-                  <input
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    placeholder="Enter account number"
-                    className={errors.accountNumber ? 'input-error' : ''}
-                  />
-                  {errors.accountNumber && (
-                    <span className="error-text">{errors.accountNumber}</span>
-                  )}
-                </div>
+                {accounts.length > 1 && (
+                  <div className="field">
+                    <label>Pay from</label>
+                    <select
+                      value={fromAccount}
+                      onChange={(e) => setFromAccount(e.target.value)}
+                      className="field-select"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.account_number} value={a.account_number}>
+                          {a.account_name} — {formatCurrency(a.balance)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="field">
-                  <label>Bill ID</label>
+                  <label>Bill ID / Account</label>
                   <input
                     value={billId}
                     onChange={(e) => setBillId(e.target.value)}
-                    placeholder="Enter bill ID"
+                    placeholder="Enter bill ID or account"
                     className={errors.billId ? 'input-error' : ''}
                   />
                   {errors.billId && (
                     <span className="error-text">{errors.billId}</span>
                   )}
                 </div>
-
                 <div className="field">
                   <label>Due Amount</label>
                   <input
                     type="number"
+                    step="0.01"
                     value={dueAmount}
                     onChange={(e) => setDueAmount(e.target.value)}
                     placeholder="0.00"
@@ -230,7 +266,6 @@ export default function PayBillsPage() {
                     <span className="error-text">{errors.dueAmount}</span>
                   )}
                 </div>
-
                 <div className="field">
                   <label>Remarks</label>
                   <input
@@ -239,9 +274,12 @@ export default function PayBillsPage() {
                     placeholder="Optional"
                   />
                 </div>
-
-                <button className="pay-now-btn" onClick={handlePayNow}>
-                  PAY NOW
+                <button
+                  className="pay-now-btn"
+                  onClick={handlePayNow}
+                  disabled={loading}
+                >
+                  {loading ? 'PROCESSING...' : 'PAY NOW'}
                 </button>
               </div>
             )}
@@ -253,11 +291,10 @@ export default function PayBillsPage() {
                 </div>
                 <h2>Payment Successful!</h2>
                 <p className="status-sub">
-                  Confirmation number : {confirmationNumber}
+                  Transaction ID : {confirmationNumber}
                 </p>
                 <button className="back-home-btn" onClick={resetToHome}>
-                  <ChevronLeft size={16} />
-                  BACK TO HOME
+                  <ChevronLeft size={16} /> BACK TO HOME
                 </button>
               </div>
             )}
@@ -270,8 +307,7 @@ export default function PayBillsPage() {
                 <h2>Payment Failed!</h2>
                 <p className="status-sub">{failReason}</p>
                 <button className="back-home-btn" onClick={resetToHome}>
-                  <ChevronLeft size={16} />
-                  BACK TO HOME
+                  <ChevronLeft size={16} /> BACK TO HOME
                 </button>
               </div>
             )}
@@ -280,230 +316,43 @@ export default function PayBillsPage() {
       </div>
 
       <style jsx>{`
-        .page {
-          display: flex;
-          min-height: 100vh;
-          background: #f3f4f6;
-        }
-        .content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-        .topbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: white;
-          padding: 1.1rem 2.5rem;
-          border-bottom: 1px solid #eee;
-        }
-        .topbar h1 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #333;
-        }
-        .topbar-icons {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          color: #666;
-        }
-        .avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .main {
-          flex: 1;
-          display: flex;
-          justify-content: center;
-          padding: 3rem;
-        }
-        .card-wrapper {
-          width: 100%;
-          max-width: 760px;
-        }
-        .card {
-          background: white;
-          border-radius: 24px;
-          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
-          padding: 3rem;
-        }
-        .biller-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 2.5rem 2rem;
-        }
-        .biller-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.65rem;
-          background: none;
-          border: none;
-          cursor: pointer;
-        }
-        .biller-icon {
-          width: 76px;
-          height: 76px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.15s, box-shadow 0.15s;
-        }
-        .biller-icon.small {
-          width: 48px;
-          height: 48px;
-        }
-        .logo-circle {
-          background: white;
-          border: 1px solid #eee;
-        }
-        .biller-btn:hover .biller-icon {
-          transform: scale(1.07);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-        }
-        .biller-name {
-          font-size: 0.82rem;
-          color: #555;
-          text-align: center;
-          line-height: 1.25;
-          font-weight: 500;
-        }
-        .back-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          background: none;
-          border: none;
-          color: #888;
-          font-size: 0.9rem;
-          cursor: pointer;
-          margin-bottom: 1.75rem;
-          padding: 0;
-        }
-        .back-btn:hover {
-          color: #555;
-        }
-        .biller-header {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          margin-bottom: 2.25rem;
-        }
-        .biller-header-name {
-          font-weight: 600;
-          font-size: 1.05rem;
-          color: #333;
-        }
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          margin-bottom: 1.4rem;
-        }
-        .field label {
-          font-size: 0.9rem;
-          color: #666;
-          font-weight: 500;
-        }
-        .field input {
-          background: #f3f4f6;
-          border: 1.5px solid transparent;
-          border-radius: 12px;
-          padding: 0.85rem 1.1rem;
-          font-size: 0.95rem;
-          color: #333;
-          outline: none;
-          transition: box-shadow 0.15s, border-color 0.15s;
-        }
-        .field input:focus {
-          box-shadow: 0 0 0 2px #d8b9d6;
-        }
-        .field input.input-error {
-          border-color: #ef4444;
-          background: #fef2f2;
-        }
-        .error-text {
-          font-size: 0.78rem;
-          color: #ef4444;
-          margin-top: 0.15rem;
-        }
-        .pay-now-btn {
-          margin-top: 1.75rem;
-          width: 100%;
-          background: #9a5c97;
-          color: white;
-          font-weight: 600;
-          font-size: 1rem;
-          padding: 1rem;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .pay-now-btn:hover {
-          background: #450043;
-        }
-        .status-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          padding: 4rem 3rem;
-        }
-        .status-circle {
-          width: 112px;
-          height: 112px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1.75rem;
-        }
-        .status-circle.success {
-          background: #dcfce7;
-          color: #22c55e;
-        }
-        .status-circle.failed {
-          background: #fee2e2;
-          color: #ef4444;
-        }
-        .status-card h2 {
-          font-size: 1.4rem;
-          font-weight: 600;
-          color: #333;
-          margin-bottom: 0.6rem;
-        }
-        .status-sub {
-          font-size: 0.9rem;
-          color: #999;
-          margin-bottom: 2.25rem;
-          white-space: pre-line;
-        }
-        .back-home-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          background: #9a5c97;
-          color: white;
-          font-weight: 600;
-          font-size: 0.9rem;
-          padding: 0.85rem 2.25rem;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .back-home-btn:hover {
-          background: #450043;
-        }
+        .page { display: flex; min-height: 100vh; background: #f3f4f6; }
+        .content { flex: 1; display: flex; flex-direction: column; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; background: white; padding: 1.1rem 2.5rem; border-bottom: 1px solid #eee; }
+        .topbar h1 { font-size: 1.25rem; font-weight: 600; color: #333; }
+        .topbar-icons { display: flex; align-items: center; gap: 1.5rem; color: #666; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; }
+        .main { flex: 1; display: flex; justify-content: center; padding: 3rem; }
+        .card-wrapper { width: 100%; max-width: 760px; }
+        .card { background: white; border-radius: 24px; box-shadow: 0 6px 24px rgba(0,0,0,0.06); padding: 3rem; }
+        .account-balance { font-size: 0.9rem; color: #555; margin-bottom: 1.5rem; text-align: center; }
+        .biller-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5rem 2rem; }
+        .biller-btn { display: flex; flex-direction: column; align-items: center; gap: 0.65rem; background: none; border: none; cursor: pointer; }
+        .biller-icon { width: 76px; height: 76px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
+        .biller-icon.small { width: 48px; height: 48px; }
+        .logo-circle { background: white; border: 1px solid #eee; }
+        .biller-btn:hover .biller-icon { transform: scale(1.07); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+        .biller-name { font-size: 0.82rem; color: #555; text-align: center; font-weight: 500; }
+        .back-btn { display: flex; align-items: center; gap: 0.25rem; background: none; border: none; color: #888; font-size: 0.9rem; cursor: pointer; margin-bottom: 1.75rem; padding: 0; }
+        .biller-header { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 2.25rem; }
+        .biller-header-name { font-weight: 600; font-size: 1.05rem; color: #333; }
+        .field { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
+        .field label { font-size: 0.9rem; color: #666; font-weight: 500; }
+        .field input, .field-select { background: #f3f4f6; border: 1.5px solid transparent; border-radius: 12px; padding: 0.85rem 1.1rem; font-size: 0.95rem; color: #333; outline: none; }
+        .field input:focus, .field-select:focus { box-shadow: 0 0 0 2px #d8b9d6; }
+        .field input.input-error { border-color: #ef4444; background: #fef2f2; }
+        .error-text { font-size: 0.78rem; color: #ef4444; }
+        .pay-now-btn { margin-top: 1.75rem; width: 100%; background: #9a5c97; color: white; font-weight: 600; font-size: 1rem; padding: 1rem; border: none; border-radius: 999px; cursor: pointer; }
+        .pay-now-btn:hover { background: #450043; }
+        .pay-now-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .status-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 4rem 3rem; }
+        .status-circle { width: 112px; height: 112px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1.75rem; }
+        .status-circle.success { background: #dcfce7; color: #22c55e; }
+        .status-circle.failed { background: #fee2e2; color: #ef4444; }
+        .status-card h2 { font-size: 1.4rem; font-weight: 600; color: #333; margin-bottom: 0.6rem; }
+        .status-sub { font-size: 0.9rem; color: #999; margin-bottom: 2.25rem; white-space: pre-line; }
+        .back-home-btn { display: flex; align-items: center; gap: 0.4rem; background: #9a5c97; color: white; font-weight: 600; font-size: 0.9rem; padding: 0.85rem 2.25rem; border: none; border-radius: 999px; cursor: pointer; }
+        .back-home-btn:hover { background: #450043; }
       `}</style>
     </div>
   )
