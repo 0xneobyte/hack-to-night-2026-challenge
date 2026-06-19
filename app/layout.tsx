@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Poppins, Playfair_Display, Geist_Mono } from 'next/font/google'
+import { Poppins, Geist_Mono } from 'next/font/google'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 import { cn } from '@/lib/utils'
@@ -8,12 +8,6 @@ const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-sans'
-})
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-heading'
 })
 
 const geistMono = Geist_Mono({
@@ -37,7 +31,6 @@ export default function RootLayout({
       className={cn(
         'h-full antialiased',
         poppins.variable,
-        playfair.variable,
         geistMono.variable,
         'font-sans'
       )}
