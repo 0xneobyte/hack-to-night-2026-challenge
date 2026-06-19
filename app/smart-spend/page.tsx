@@ -7,7 +7,6 @@ import {
   InfoIcon,
   LightbulbIcon,
   OctagonAlertIcon,
-  SparklesIcon,
   WalletIcon
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -98,10 +97,7 @@ export default function SmartSpendPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="flex items-center gap-2 text-2xl font-bold">
-                <SparklesIcon className="size-6 text-primary" />
-                Smart Spend
-              </h1>
+              <h1 className="text-2xl font-bold">Smart Spend</h1>
               <p className="text-sm text-muted-foreground">
                 AI spending monitoring, insights & alerts
               </p>
