@@ -363,15 +363,24 @@ export default function TradingPage() {
     return map
   }, [portfolio])
 
+  // Seed amount used as the cash-balance fallback before the user has
+  // made their first trade. Sourced from the API response so there's a
+  // single source of truth (matches `seedAmount` in /api/demo/portfolio).
+  const SEED_AMOUNT = portfolio?.seedAmount ?? 1000000
+
   const portfolioValue = useMemo(() => {
-    if (!portfolio) return 0
+    if (!portfolio) return SEED_AMOUNT
     const holdingsValue = (portfolio.holdings ?? []).reduce((sum, h) => {
       const live = prices.find((p) => p.symbol === h.symbol)
       const price = live?.lastTradedPrice ?? h.avg_price
       return sum + price * h.quantity
     }, 0)
-    return portfolio.balance.balance + holdingsValue
-  }, [portfolio, prices])
+    return (portfolio.balance?.balance ?? SEED_AMOUNT) + holdingsValue
+  }, [portfolio, prices, SEED_AMOUNT])
+
+  // Effective cash balance — falls back to the seed amount before the
+  // first trade so the UI never flashes Rs. 0.00 while data resolves.
+  const effectiveCashBalance = portfolio?.balance?.balance ?? SEED_AMOUNT
 
   const totalPnl = useMemo(() => {
     if (!portfolio) return 0
@@ -482,7 +491,7 @@ export default function TradingPage() {
                   footer={
                     <Badge variant="outline" className="gap-1">
                       <WalletIcon className="size-3" />
-                      Cash {formatLKRCompact(portfolio?.balance.balance ?? 0)}
+                      Cash {formatLKRCompact(effectiveCashBalance)}
                     </Badge>
                   }
                 />
@@ -685,7 +694,7 @@ export default function TradingPage() {
                     </CardDescription>
                     <CardAction>
                       <Badge variant="outline">
-                        Cash {formatLKRCompact(portfolio?.balance.balance ?? 0)}
+                        Cash {formatLKRCompact(effectiveCashBalance)}
                       </Badge>
                     </CardAction>
                   </CardHeader>
@@ -966,9 +975,9 @@ export default function TradingPage() {
                   <span className="font-medium tabular-nums">
                     {formatLKR(
                       sheetMode === 'BUY'
-                        ? (portfolio?.balance.balance ?? 0) -
+                        ? effectiveCashBalance -
                             (Number(orderQty) || 0) * sheetStock.lastTradedPrice
-                        : (portfolio?.balance.balance ?? 0) +
+                        : effectiveCashBalance +
                             (Number(orderQty) || 0) * sheetStock.lastTradedPrice
                     )}
                   </span>
