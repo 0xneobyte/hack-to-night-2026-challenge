@@ -1,60 +1,112 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import Sidebar from '@/components/sidebar'
+
+interface Account {
+  id: number
+  account_number: string
+  account_name: string
+  balance: number
+}
+
+type Step = 'form' | 'confirm' | 'success' | 'failure'
 
 type Errors = Partial<{
   amount: string
   accountNumber: string
-  accountName: string
-  bank: string
+  fromAccount: string
 }>
 
-export default function Home() {
+export default function BankTransferPage() {
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [fromAccount, setFromAccount] = useState('')
   const [amount, setAmount] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
-  const [accountName, setAccountName] = useState('')
-  const [bank, setBank] = useState('')
   const [description, setDescription] = useState('')
   const [errors, setErrors] = useState<Errors>({})
-  const [step, setStep] = useState<'form' | 'confirm' | 'success' | 'failure'>(
-    'form'
-  )
+  const [step, setStep] = useState<Step>('form')
   const [confirmation, setConfirmation] = useState<string | null>(null)
+  const [failMessage, setFailMessage] = useState('')
+  const [failBalance, setFailBalance] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/accounts')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) {
+          const accs = json.data?.accounts ?? json.accounts ?? []
+          setAccounts(accs)
+          if (accs.length > 0) setFromAccount(accs[0].account_number)
+        }
+      })
+  }, [])
+
+  const selectedAccount = accounts.find((a) => a.account_number === fromAccount)
 
   function validate() {
     const e: Errors = {}
+    if (!fromAccount) e.fromAccount = 'Select a source account'
     if (!amount) e.amount = 'Amount is required'
     else if (Number(amount) <= 0 || isNaN(Number(amount)))
       e.amount = 'Enter a valid positive amount'
-
-    if (!accountNumber) e.accountNumber = 'Account number is required'
+    if (!accountNumber) e.accountNumber = 'Recipient account number is required'
     else if (!/^\d{6,}$/.test(accountNumber))
       e.accountNumber = 'Enter a valid account number'
-
-    if (!accountName) e.accountName = 'Account name is required'
-
-    if (!bank) e.bank = 'Select a bank'
-
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
   function handleNext(e: React.FormEvent) {
     e.preventDefault()
-    if (validate()) {
-      // show confirmation step first
-      setStep('confirm')
+    if (validate()) setStep('confirm')
+  }
+
+  async function handleTransfer(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+
+    const res = await fetch('/api/transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromAccount,
+        toAccount: accountNumber,
+        amount: Number(amount),
+        description
+      })
+    })
+
+    const json = await res.json()
+    setLoading(false)
+
+    if (json.ok) {
+      const txId = json.data?.transaction_id ?? json.transaction_id
+      setConfirmation(String(txId))
+      setStep('success')
+    } else {
+      const msg = json.data?.message ?? json.message ?? 'Transfer failed'
+      setFailMessage(msg)
+      const bal = json.data?.balance ?? json.balance ?? selectedAccount?.balance
+      setFailBalance(bal != null ? Number(bal) : null)
+      setStep('failure')
     }
   }
 
-  function handleTransfer(e: React.FormEvent) {
-    e.preventDefault()
-    // simulate transfer completion and show success page
-    const conf = String(Math.floor(10000000 + Math.random() * 89999999))
-    setConfirmation(conf)
-    setStep('success' as any)
+  function resetForm() {
+    setAmount('')
+    setAccountNumber('')
+    setDescription('')
+    setErrors({})
+    setConfirmation(null)
+    setFailMessage('')
+    setFailBalance(null)
+    setStep('form')
+  }
+
+  function formatCurrency(n: number) {
+    return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
   }
 
   return (
@@ -66,12 +118,6 @@ export default function Home() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">Bank Transfer</h2>
             <div className="flex items-center gap-3">
-              <button className="topbar-icon" aria-label="search">
-                <img src="/search.png" alt="search" />
-              </button>
-              <button className="topbar-icon" aria-label="notifications">
-                <img src="/notification.png" alt="notifications" />
-              </button>
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
                 <img
                   src="/avatar.png"
@@ -81,17 +127,42 @@ export default function Home() {
               </div>
             </div>
           </div>
-          {step === 'form' ? (
+
+          {step === 'form' && (
             <form onSubmit={handleNext} className="transfer-card p-8">
               <div className="grid grid-cols-12 gap-y-6 gap-x-8 items-center">
+                <label className="col-span-3 text-gray-700">
+                  From Account :
+                </label>
+                <div className="col-span-9">
+                  <select
+                    value={fromAccount}
+                    onChange={(e) => setFromAccount(e.target.value)}
+                    className="underline-input bg-transparent"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.account_number} value={a.account_number}>
+                        {a.account_name} ({a.account_number}) —{' '}
+                        {formatCurrency(a.balance)}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.fromAccount && (
+                    <div className="text-sm text-red-600 mt-1">
+                      {errors.fromAccount}
+                    </div>
+                  )}
+                </div>
+
                 <label className="col-span-3 text-gray-700">Amount :</label>
                 <div className="col-span-9">
                   <input
-                    aria-label="amount"
+                    type="number"
+                    step="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="underline-input"
-                    placeholder=""
+                    placeholder="0.00"
                   />
                   {errors.amount && (
                     <div className="text-sm text-red-600 mt-1">
@@ -101,54 +172,18 @@ export default function Home() {
                 </div>
 
                 <label className="col-span-3 text-gray-700">
-                  Account Number :
+                  To Account Number :
                 </label>
                 <div className="col-span-9">
                   <input
                     value={accountNumber}
                     onChange={(e) => setAccountNumber(e.target.value)}
                     className="underline-input"
+                    placeholder="Recipient account number"
                   />
                   {errors.accountNumber && (
                     <div className="text-sm text-red-600 mt-1">
                       {errors.accountNumber}
-                    </div>
-                  )}
-                </div>
-
-                <label className="col-span-3 text-gray-700">
-                  Account Name :
-                </label>
-                <div className="col-span-9">
-                  <input
-                    value={accountName}
-                    onChange={(e) => setAccountName(e.target.value)}
-                    className="underline-input"
-                  />
-                  {errors.accountName && (
-                    <div className="text-sm text-red-600 mt-1">
-                      {errors.accountName}
-                    </div>
-                  )}
-                </div>
-
-                <label className="col-span-3 text-gray-700">
-                  Select Bank :
-                </label>
-                <div className="col-span-9">
-                  <select
-                    value={bank}
-                    onChange={(e) => setBank(e.target.value)}
-                    className="underline-input bg-transparent"
-                  >
-                    <option value="">Choose bank</option>
-                    <option>First National</option>
-                    <option>Global Trust</option>
-                    <option>Union Bank</option>
-                  </select>
-                  {errors.bank && (
-                    <div className="text-sm text-red-600 mt-1">
-                      {errors.bank}
                     </div>
                   )}
                 </div>
@@ -160,8 +195,9 @@ export default function Home() {
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
+                    rows={3}
                     className="description-box"
+                    placeholder="Optional"
                   />
                 </div>
               </div>
@@ -172,19 +208,25 @@ export default function Home() {
                 </button>
               </div>
             </form>
-          ) : step === 'confirm' ? (
+          )}
+
+          {step === 'confirm' && (
             <div className="transfer-card p-8">
               <h3 className="text-center text-2xl font-semibold mb-6">
                 Confirm Transfer
               </h3>
               <div className="bg-white rounded-lg p-6 shadow-lg max-w-xl mx-auto text-center">
+                <p className="mb-2">
+                  From <strong>{selectedAccount?.account_name}</strong> (
+                  {fromAccount})
+                </p>
                 <p className="mb-4">
-                  Confirm your transfer of <strong>Rs. {amount || '0'}</strong>{' '}
-                  to <strong>{accountName || 'recipient'}</strong>
+                  Transfer <strong>{formatCurrency(Number(amount))}</strong> to
+                  account <strong>{accountNumber}</strong>
                 </p>
-                <p className="text-sm text-gray-600 mb-6">
-                  Additional fee of Rs.50 will be charged.
-                </p>
+                {description && (
+                  <p className="text-sm text-gray-500 mb-4">{description}</p>
+                )}
                 <div className="mb-6">
                   <img
                     src="/transfer-illustration.png"
@@ -193,24 +235,22 @@ export default function Home() {
                   />
                 </div>
                 <div className="flex justify-center gap-4">
-                  <button
-                    onClick={() => setStep('form')}
-                    className="next-btn"
-                    aria-label="back"
-                  >
+                  <button onClick={() => setStep('form')} className="next-btn">
                     BACK
                   </button>
                   <button
                     onClick={handleTransfer}
                     className="next-btn transfer-btn"
+                    disabled={loading}
                   >
-                    TRANSFER
+                    {loading ? 'PROCESSING...' : 'TRANSFER'}
                   </button>
                 </div>
               </div>
             </div>
-          ) : step === 'success' ? (
-            // success page
+          )}
+
+          {step === 'success' && (
             <div className="transfer-card p-8">
               <div className="relative">
                 <div className="success-check inside-check">
@@ -220,12 +260,6 @@ export default function Home() {
                     height="100"
                     xmlns="http://www.w3.org/2000/svg"
                   >
-                    <defs>
-                      <radialGradient id="g" cx="50%" cy="50%">
-                        <stop offset="0%" stopColor="#28a745" />
-                        <stop offset="100%" stopColor="#138a3e" />
-                      </radialGradient>
-                    </defs>
                     <circle cx="60" cy="60" r="50" fill="#dff7e7" />
                     <circle cx="60" cy="60" r="40" fill="#10a654" />
                     <path
@@ -238,36 +272,25 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-
                 <h3 className="text-center text-2xl font-semibold mb-4">
                   Transfer Successful!
                 </h3>
                 <p className="text-center text-sm text-gray-500 mb-10">
-                  Confirmation number : {confirmation}
+                  Transaction ID : {confirmation}
                 </p>
-
                 <div className="flex justify-center">
                   <button
-                    onClick={() => {
-                      // go back to home (reset form)
-                      setAmount('')
-                      setAccountNumber('')
-                      setAccountName('')
-                      setBank('')
-                      setDescription('')
-                      setErrors({})
-                      setConfirmation(null)
-                      setStep('form')
-                    }}
+                    onClick={resetForm}
                     className="transfer-btn success-btn"
                   >
-                    <span className="mr-3">‹</span> BACK TO HOME
+                    <span className="mr-3">&lsaquo;</span> BACK TO HOME
                   </button>
                 </div>
               </div>
             </div>
-          ) : (
-            // failure page
+          )}
+
+          {step === 'failure' && (
             <div className="transfer-card p-8">
               <div className="relative">
                 <div className="success-check inside-check">
@@ -298,31 +321,24 @@ export default function Home() {
                     </text>
                   </svg>
                 </div>
-
                 <h3 className="text-center text-2xl font-semibold mb-4">
                   Transaction Failed!
                 </h3>
                 <p className="text-center text-sm text-gray-500 mb-6">
-                  Insufficient Balance
-                  <br />
-                  Current Balance is: Rs.500
+                  {failMessage}
+                  {failBalance != null && (
+                    <>
+                      <br />
+                      Current Balance: {formatCurrency(failBalance)}
+                    </>
+                  )}
                 </p>
-
                 <div className="flex justify-center">
                   <button
-                    onClick={() => {
-                      setAmount('')
-                      setAccountNumber('')
-                      setAccountName('')
-                      setBank('')
-                      setDescription('')
-                      setErrors({})
-                      setConfirmation(null)
-                      setStep('form')
-                    }}
+                    onClick={resetForm}
                     className="transfer-btn success-btn"
                   >
-                    <span className="mr-3">‹</span> BACK TO HOME
+                    <span className="mr-3">&lsaquo;</span> BACK TO HOME
                   </button>
                 </div>
               </div>
