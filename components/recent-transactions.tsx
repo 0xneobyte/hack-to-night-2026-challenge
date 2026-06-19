@@ -48,7 +48,7 @@ export function RecentTransactions({
         <CardDescription>Your latest account activity.</CardDescription>
         <CardAction>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/e-statement">View All</Link>
+            <Link href="/transactions">View All</Link>
           </Button>
         </CardAction>
       </CardHeader>

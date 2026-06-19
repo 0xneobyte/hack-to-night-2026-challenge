@@ -23,6 +23,7 @@ import {
   ReceiptIcon,
   PieChartIcon,
   FileTextIcon,
+  HistoryIcon,
   Settings2Icon,
   LogOutIcon,
   LandmarkIcon
@@ -70,6 +71,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       icon: <ArrowLeftRightIcon />
     },
     { title: 'Pay Bills', url: '/pay-bills', icon: <ReceiptIcon /> },
+    { title: 'Transactions', url: '/transactions', icon: <HistoryIcon /> },
     { title: 'Smart Spend', url: '/smart-spend', icon: <PieChartIcon /> },
     { title: 'E-Statement', url: '/e-statement', icon: <FileTextIcon /> }
   ]
