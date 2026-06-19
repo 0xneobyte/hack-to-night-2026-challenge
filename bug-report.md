@@ -1,356 +1,200 @@
-# Nova Bank — Bug & Vulnerability Report
+# Nova Bank — Bug Report & Implementation Plan
 
-> Hack to Night 2026 — System Audit  
-> Audited: 2026-06-19
+> Hack to Night 2026 — Team Audit & Roadmap  
+> Date: 2026-06-19  
+> Team: Neo, Gimhani, Zenith, Ruwithma
 
 ---
 
 ## Executive Summary
 
-The Nova Bank online banking system has **critical security vulnerabilities** in every API route, **zero authentication enforcement**, and a **frontend that is completely disconnected from the backend** — no page actually calls any API endpoint. The backend is vulnerable to full database takeover via SQL injection, and the frontend simulates success/failure with random numbers and hardcoded data.
+The Nova Bank system has **25 bugs** across security, logic, and functionality. The frontend is **completely disconnected from the backend** — no page calls any API. The backend is vulnerable to **SQL injection in every route** and has **zero authentication**. Below is the fix plan organized by dependency order and assigned across the team.
 
 ---
 
-## CRITICAL — Security
+## Team & Workstream Overview
 
-### S1. SQL Injection in Every API Route
-
-**Files:** `lib/platform-db.ts`, all `/api/*` routes  
-**Impact:** Full database read/write/delete, data exfiltration, auth bypass
-
-Every API endpoint builds SQL by string interpolation into `runStatement()`. Zero parameterized queries anywhere.
-
-| Endpoint | Injectable fields |
-|---|---|
-| `POST /api/auth/login` | `username`, `password` |
-| `POST /api/transfer` | `fromAccount`, `toAccount`, `amount`, `description`, `userId` |
-| `GET /api/accounts` | `userId`, `includePins` |
-| `GET /api/transactions` | `account` |
-| `GET /api/search` | `q` |
-
-**Example:** Login with `username = ' OR '1'='1' --` bypasses all authentication.
-
-**Fix direction:** Replace all raw SQL with parameterized queries (`$1`, `$2` placeholders via `pool.query(sql, params)`).
+| Member | Workstream | Focus Area |
+|--------|-----------|------------|
+| **Neo** | Backend Foundation | Database layer, auth system, middleware, sessions |
+| **Gimhani** | API Security & Logic | Fix all API routes, transfer logic, remove leaks |
+| **Zenith** | Frontend Auth & Core | Login, signup, reset password, dashboard wiring |
+| **Ruwithma** | Frontend Features | Bank transfer, pay bills, e-statement, smart spend, accounts |
 
 ---
 
-### S2. Login GET Endpoint Dumps All Users with Plaintext Passwords
+## Phase 1 — Foundation (Do First, Everything Depends On This)
 
-**File:** `app/api/auth/login/route.ts:4-17` (GET handler)  
-**Impact:** Any unauthenticated user can retrieve every username, password, role, NIC, and email.
+> **Blockers:** Nothing in Phase 2-4 works until Phase 1 is done.
 
-`GET /api/auth/login` returns all user rows including the `password` column in plaintext. This is publicly accessible with no authentication.
+### NEO — Database & Auth Foundation
 
-**Fix direction:** Remove the GET handler entirely. Passwords should be hashed (bcrypt/argon2) and never returned in any response.
+| # | Bug ID | Task | File(s) | Severity |
+|---|--------|------|---------|----------|
+| 1 | S1 | **Replace `runStatement` with parameterized queries** — change `pool.query(sql)` to `pool.query(sql, params)` with `$1, $2` placeholders. Every API route depends on this. | `lib/platform-db.ts` | CRITICAL |
+| 2 | S6 | **Add password hashing** — install bcrypt, hash passwords on insert, compare on login. Hash PINs at rest. | `lib/platform-db.ts` | CRITICAL |
+| 3 | S7 | **Fix `serviceFailure()`** — remove `connectionString`, `trace`, `detail` from error responses. Return generic `{ ok: false, message: "Internal error" }` to clients. Log details server-side only. | `lib/platform-db.ts:93-112` | HIGH |
+| 4 | S8 | **Remove SQL logging** — delete `console.log('[bank-sql]', sql)` or log only query templates without values. | `lib/platform-db.ts:77-78` | HIGH |
+| 5 | S10 | **Remove hardcoded credentials** — delete the fallback connection string. Require `DATABASE_URL` env var. Add `.env.local` to `.gitignore`. | `lib/platform-db.ts:5`, `.gitignore` | MEDIUM |
+| 6 | S5 | **Build proper session system** — signed HttpOnly Secure cookies (JWT with server secret or server-side sessions). Remove unsigned base64 token and client-set `role` cookie. | `lib/auth.ts` (new) | CRITICAL |
+| 7 | F2 | **Create `middleware.ts`** — check session cookie, redirect unauthenticated users to `/login`. Root `/` should redirect to `/login` or `/dashboard`. | `middleware.ts` (new), `app/page.tsx` | HIGH |
+| 8 | L5 | **Fix SERIAL sequence after seed** — add `SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))` after seed insert. Same for accounts. | `lib/platform-db.ts:55-72` | MEDIUM |
 
----
-
-### S3. Admin System Endpoint Leaks All Secrets — No Auth
-
-**File:** `app/api/admin/system/route.ts`  
-**Impact:** Full environment variable leak, all user data, all account data
-
-`GET /api/admin/system` requires zero authentication and returns:
-- `process.env` — every environment variable including `DATABASE_URL` with credentials
-- All user records (passwords included)
-- All account records (PINs included)
-- Raw cookies from the request
-
-**Fix direction:** Delete or gate behind verified admin session with server-side role check.
+**Deliverable:** A secure `lib/platform-db.ts`, a new `lib/auth.ts` with session helpers, and `middleware.ts` route protection. All other work builds on this.
 
 ---
 
-### S4. Account PINs Exposed via Query Parameter
+### GIMHANI — API Routes (Can Start Items 1-3 in Parallel with Neo)
 
-**File:** `app/api/accounts/route.ts:7-8`  
-**Impact:** Anyone can request `?includePins=true` to get all PINs for any user
+| # | Bug ID | Task | File(s) | Severity |
+|---|--------|------|---------|----------|
+| 1 | S2 | **Delete the GET handler** in login route — it dumps all users with plaintext passwords. | `app/api/auth/login/route.ts:4-17` | CRITICAL |
+| 2 | S3 | **Lock down admin endpoint** — either delete it or gate behind verified admin session (depends on Neo's auth). Remove `process.env` from response entirely. | `app/api/admin/system/route.ts` | CRITICAL |
+| 3 | S9 | **Remove `sql` field from login responses** — both success and failure responses expose the executed query. | `app/api/auth/login/route.ts:38, 56` | HIGH |
 
-The `includePins` flag uses `SELECT a.*` which returns the `pin` column. Combined with no auth, any user's PINs are freely accessible.
+> **BLOCKED on Neo's Phase 1 (items 1, 6)** — the items below need parameterized queries and session auth:
 
-**Fix direction:** Never return PINs in API responses. Remove the `includePins` parameter entirely.
+| # | Bug ID | Task | File(s) | Severity |
+|---|--------|------|---------|----------|
+| 4 | S4 | **Remove `includePins` parameter** — never return PINs in any API response. Fix column selection to explicit safe list. | `app/api/accounts/route.ts` | CRITICAL |
+| 5 | — | **Rewrite login POST** — use parameterized query, bcrypt compare, return signed session token from Neo's auth module. | `app/api/auth/login/route.ts` | CRITICAL |
+| 6 | L1 | **Make transfer atomic** — wrap debit + credit + insert in `BEGIN/COMMIT` with `ROLLBACK` on failure. | `app/api/transfer/route.ts` | CRITICAL |
+| 7 | L2 | **Add balance check** — `WHERE balance >= $amount` on debit, or check within transaction. Return error if insufficient. | `app/api/transfer/route.ts` | CRITICAL |
+| 8 | L3 | **Validate transfer amount server-side** — must be a positive number > 0. Reject negative, zero, NaN, non-numeric. | `app/api/transfer/route.ts` | CRITICAL |
+| 9 | L4 | **Add ownership check on transfers** — derive `userId` from session (not request body). Verify `fromAccount` belongs to that user. Remove dangerous defaults. | `app/api/transfer/route.ts` | CRITICAL |
+| 10 | — | **Rewrite accounts, transactions, search routes** — parameterized queries, auth checks, safe column selection. | `app/api/accounts/route.ts`, `app/api/transactions/route.ts`, `app/api/search/route.ts` | HIGH |
+| 11 | — | **Create `/api/auth/signup` endpoint** — validate inputs, hash password, insert user, create account. | `app/api/auth/signup/route.ts` (new) | HIGH |
+| 12 | — | **Create `/api/auth/reset-password` endpoint** — OTP or email token flow for password reset. | `app/api/auth/reset-password/route.ts` (new) | HIGH |
 
----
-
-### S5. Forgeable Session — Unsigned Token + Client-Set Role Cookie
-
-**File:** `app/api/auth/login/route.ts:46-53`  
-**Impact:** Any user can escalate to admin
-
-The "token" is just `base64(id:role:session-token)` — trivially decoded and forgeable. The `role` cookie is set client-side with no signature or encryption. An attacker can set `role=admin` in their browser cookies.
-
-Cookies also lack `HttpOnly` and `Secure` flags, making them accessible to JavaScript (XSS) and transmitted over HTTP.
-
-**Fix direction:** Use signed, HttpOnly, Secure session tokens (JWT with a server secret, or server-side sessions). Never trust client-set role cookies.
-
----
-
-### S6. Plaintext Passwords and PINs at Rest
-
-**File:** `lib/platform-db.ts:55-66`  
-**Impact:** Database breach exposes all credentials immediately
-
-Passwords and PINs are stored in plaintext in the database. No hashing algorithm is used anywhere.
-
-**Fix direction:** Hash passwords with bcrypt/argon2 on registration. PINs should be hashed or encrypted at rest.
+**Deliverable:** All API routes secured with parameterized queries, auth checks, proper transfer logic, and new auth endpoints.
 
 ---
 
-### S7. Error Responses Leak Database Connection String and Stack Traces
+## Phase 2 — Frontend Wiring (After Phase 1 APIs Are Working)
 
-**File:** `lib/platform-db.ts:93-112`  
-**Impact:** Attacker learns database host, port, username, password from any error
+> **Blocked on:** Neo's middleware + Gimhani's API endpoints
 
-`serviceFailure()` returns `connectionString` (includes password), full stack trace, and internal error codes to the client.
+### ZENITH — Auth Pages & Dashboard
 
-**Fix direction:** Return generic error messages to clients. Log details server-side only.
+| # | Bug ID | Task | File(s) | Severity |
+|---|--------|------|---------|----------|
+| 1 | F1 | **Wire login page** — add `useState` for username/password, `onSubmit` handler that calls `POST /api/auth/login`, handle errors, redirect on success. | `app/(accounts)/login/page.tsx` | CRITICAL |
+| 2 | F8 | **Wire sign-up page** — add state for all fields, validate password match, call `POST /api/auth/signup`, handle errors. | `app/(accounts)/sign-up/page.tsx` | HIGH |
+| 3 | F8 | **Wire reset password page** — add state, call `/api/auth/reset-password`, handle OTP flow. | `app/(accounts)/reset-password/page.tsx` | HIGH |
+| 4 | F5 | **Wire dashboard to real data** — fetch logged-in user's accounts and recent transactions from API. Replace all hardcoded values. | `app/dashboard/page.tsx` | HIGH |
+| 5 | F6 | **Fix asset case mismatch** — rename `Dashboard-logo.png` to `dashboard-logo.png` (or update the reference). | `public/Dashboard-logo.png` | MEDIUM |
 
----
-
-### S8. SQL Queries Logged to Console with User Input
-
-**File:** `lib/platform-db.ts:77-78`  
-**Impact:** Passwords, PINs, and user data appear in server logs
-
-`console.log('[bank-sql]', sql)` logs every query including those with interpolated passwords and sensitive data.
-
-**Fix direction:** Remove SQL logging, or log only parameterized query templates (never values).
+**Deliverable:** Login/signup/reset working end-to-end, dashboard showing real user data.
 
 ---
 
-### S9. Login Response Includes Executed SQL Query
+### RUWITHMA — Feature Pages
 
-**File:** `app/api/auth/login/route.ts:38, 56`  
-**Impact:** Attacker sees exact SQL structure, making SQLi trivial
+| # | Bug ID | Task | File(s) | Severity |
+|---|--------|------|---------|----------|
+| 1 | F1 | **Wire bank transfer to API** — `handleTransfer` must call `POST /api/transfer`, show real success/failure based on response. | `app/bank-transfer/page.tsx` | CRITICAL |
+| 2 | F3 | **Fix BACK button** — change `setStep('failure')` to `setStep('form')` on line 198. | `app/bank-transfer/page.tsx:198` | HIGH |
+| 3 | F4 | **Show real balance on failure** — fetch actual balance from `/api/accounts` instead of hardcoded "Rs.500". | `app/bank-transfer/page.tsx:308` | MEDIUM |
+| 4 | F1 | **Wire pay bills to API** — replace `MOCK_BALANCE` with real balance from `/api/accounts`, call transfer API on payment. | `app/pay-bills/page.tsx` | HIGH |
+| 5 | F7 | **Fix sensitive data in URL** — replace `handleUpdateAccount` URL params with component state or POST. | `app/bank-accounts/page.tsx:217` | MEDIUM |
+| 6 | F1 | **Wire bank accounts to API** — fetch real accounts from `/api/accounts`, implement add/edit/delete with API calls. | `app/bank-accounts/page.tsx` | HIGH |
+| 7 | F9 | **Wire e-statement** — add state to input, fetch transactions from `/api/transactions`, populate statement template. | `app/e-statement/page.tsx` | HIGH |
+| 8 | F10 | **Implement Smart Spend page** — design and build the page (analytics, spending categories, budgets). | `app/smart-spend/page.tsx` | MEDIUM |
 
-Both success and failure login responses include the `sql` field showing the full executed query.
-
-**Fix direction:** Never return SQL in API responses.
-
----
-
-### S10. Hardcoded Database Credentials in Source Code
-
-**File:** `lib/platform-db.ts:5`  
-**Impact:** Credentials are in version control
-
-The fallback connection string `postgresql://postgres:supersecurepassword@localhost:5432/htn26db` is hardcoded. `.env.local` is also committed with the same password.
-
-**Fix direction:** Use environment variables only, add `.env.local` to `.gitignore`, rotate credentials.
+**Deliverable:** All feature pages calling real APIs, showing real data, with proper error handling.
 
 ---
 
-## CRITICAL — Logical
+## Phase 3 — New Features (After Core System Works)
 
-### L1. Transfer is Not Atomic — No Transaction Wrapping
+> These are suggested enhancements to "make it your own" for the hackathon.
 
-**File:** `app/api/transfer/route.ts:12-28`  
-**Impact:** Money can be destroyed or created from nothing
-
-Debit and credit are separate `UPDATE` statements with no `BEGIN`/`COMMIT`. If the credit fails (e.g. invalid `toAccount`), the debit still executes — money vanishes. Network errors between the two queries cause the same issue.
-
-**Fix direction:** Wrap debit + credit + insert in a single SQL transaction (`BEGIN ... COMMIT` with `ROLLBACK` on failure).
-
----
-
-### L2. No Balance Check — Unlimited Overdraft
-
-**File:** `app/api/transfer/route.ts:12-16`  
-**Impact:** Any account can go to negative balance, creating money
-
-The debit runs `SET balance = balance - ${amount}` with no `WHERE balance >= amount` guard. Any amount can be transferred regardless of balance.
-
-**Fix direction:** Add `WHERE balance >= amount` to the debit query, or check balance first within the transaction.
+| # | Feature | Description | Suggested Owner | Priority |
+|---|---------|-------------|-----------------|----------|
+| 1 | **Transaction History with Filters** | Filterable/searchable transaction list with date range, type, and amount filters. | Ruwithma | HIGH |
+| 2 | **Smart Spend Analytics** | Spending breakdown by category (pie chart), monthly trends (line chart), budget alerts. | Ruwithma | HIGH |
+| 3 | **Real-time Balance Updates** | After transfer/payment, update balance across all pages without full reload. | Zenith | MEDIUM |
+| 4 | **User Profile & Settings Page** | Allow users to update name, email, password. Wire the settings icon in sidebar. | Zenith | MEDIUM |
+| 5 | **Admin Dashboard** | Secure admin panel — view all users, accounts, transactions, system health. Role-gated. | Gimhani | MEDIUM |
+| 6 | **Transfer Confirmation PIN** | Require account PIN before executing transfers (with rate limiting on wrong attempts). | Neo + Gimhani | HIGH |
+| 7 | **Email Notifications** | Send email on transfer, login from new device, password reset. | Neo | LOW |
+| 8 | **Dark Mode** | Theme toggle with CSS variables. | Zenith | LOW |
+| 9 | **Export E-Statement as PDF** | Generate downloadable PDF from the e-statement view. | Ruwithma | MEDIUM |
+| 10 | **Rate Limiting** | Add rate limiting to login and transfer endpoints to prevent brute force. | Neo | HIGH |
+| 11 | **Audit Logging** | Log all sensitive actions (login, transfer, password change) to `audit_logs` table. Currently the table exists but is never written to. | Gimhani | MEDIUM |
 
 ---
 
-### L3. Negative and Zero Amount Transfers Accepted
+## Dependency Graph
 
-**File:** `app/api/transfer/route.ts:8`  
-**Impact:** Attacker can reverse transfers, steal funds
-
-`amount` is taken as-is from the request body with no validation. A negative amount reverses the flow: debiting becomes crediting and vice versa. An attacker can drain any account into their own.
-
-**Fix direction:** Validate `amount` is a positive number > 0 on the server side before processing.
-
----
-
-### L4. No Ownership Verification on Transfers
-
-**File:** `app/api/transfer/route.ts:6,10`  
-**Impact:** Anyone can transfer from any account
-
-`fromAccount` and `userId` come directly from the request body, not from an authenticated session. An attacker can specify any `fromAccount` to transfer from anyone's account.
-
-Default values are also dangerous: `fromAccount` defaults to `'1000003423'` (Dilara's account) and `userId` defaults to `'1'`.
-
-**Fix direction:** Derive `userId` from the authenticated session. Verify `fromAccount` belongs to the authenticated user.
-
----
-
-### L5. SERIAL Primary Key Collision with Explicit Seed IDs
-
-**File:** `lib/platform-db.ts:55-58`  
-**Impact:** First real user registration will fail
-
-Seed data inserts users with explicit `id` values (1, 2, 3) without advancing the SERIAL sequence. The next `INSERT` without an explicit id will try `id=1` and fail with a duplicate key error.
-
-**Fix direction:** After seeding, run `SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))`.
-
----
-
-## HIGH — Functional
-
-### F1. Frontend is Completely Disconnected from Backend
-
-**Files:** All page components  
-**Impact:** The application does not function as a banking system
-
-**No page in the entire application calls any API endpoint.** There is zero `fetch()` usage across the frontend:
-- Login page has no `onSubmit` handler — form inputs have no `value`/`onChange` state binding
-- Sign-up page has no form submission logic
-- Reset password page has no backend integration or OTP sending
-- Bank transfer `handleTransfer` generates a random confirmation number client-side and never calls `/api/transfer`
-- Dashboard shows hardcoded mock transactions
-- E-statement form doesn't fetch any data
-- Pay Bills uses a hardcoded `MOCK_BALANCE` of Rs.5000
-
-The backend API and frontend UI are two completely separate, non-working halves.
-
-**Fix direction:** Wire every form to its corresponding API endpoint with proper `fetch()` calls, state management, and error handling.
-
----
-
-### F2. No Route Protection — Root Page Skips Login, All Pages Accessible Without Auth
-
-**Files:** `app/page.tsx`, no `middleware.ts` exists  
-**Impact:** Any user can access every page without authenticating — there is no login gate
-
-The root URL (`/`) shows a "Smart Spend" landing page with direct links to Accounts, Bank Transfer, Pay Bills, etc. — **it does not redirect to `/login`**. There is no `middleware.ts` or any route guard anywhere. A user opening the app for the first time goes straight to banking features without ever seeing a login screen. The login page exists at `/login` but nothing forces users through it.
-
-**Fix direction:** Add `middleware.ts` that checks for a valid session cookie and redirects unauthenticated users to `/login`. Change the root `/` to redirect to `/login` (or `/dashboard` if authenticated).
-
----
-
-### F3. Bank Transfer "BACK" Button Navigates to Failure Screen
-
-**File:** `app/bank-transfer/page.tsx:198`  
-**Impact:** Clicking BACK on confirmation shows "Transaction Failed!" instead of returning to the form
-
-```tsx
-onClick={() => setStep('failure')}  // Should be setStep('form')
+```
+Phase 1 (PARALLEL START)
+├── Neo: platform-db.ts fixes (parameterized queries, hashing, error handling)
+│   ├── Neo: auth system (lib/auth.ts)
+│   │   └── Neo: middleware.ts (route protection)
+│   │       └── Phase 2: Zenith + Ruwithma (frontend wiring)
+│   │           └── Phase 3: New features
+│   └── Gimhani: API route fixes (uses Neo's parameterized query helpers)
+│       └── Gimhani: New API endpoints (signup, reset-password)
+│           └── Phase 2: Zenith (auth page wiring)
+│
+├── Gimhani: Quick wins (delete GET login, remove sql from responses, lock admin)
+│   [NO DEPENDENCIES — can start immediately]
+│
+├── Ruwithma: Quick UI fix (BACK button bug, asset rename)
+│   [NO DEPENDENCIES — can start immediately]
+│
+└── Zenith: Login page state/form structure (prep work, no API call yet)
+    [NO DEPENDENCIES — can start immediately]
 ```
 
-The BACK button on the confirm step sets the screen to `'failure'` instead of `'form'`, showing users a fake "Transaction Failed! Insufficient Balance" message.
+---
 
-**Fix direction:** Change `setStep('failure')` to `setStep('form')`.
+## Quick Wins (Everyone Can Start Now)
+
+These have **zero dependencies** and can be fixed in minutes:
+
+| Task | Owner | Time |
+|------|-------|------|
+| Delete GET handler in `app/api/auth/login/route.ts` | Gimhani | 2 min |
+| Remove `sql` field from login responses | Gimhani | 2 min |
+| Remove `process.env` from admin response | Gimhani | 2 min |
+| Fix BACK button: `setStep('failure')` → `setStep('form')` | Ruwithma | 1 min |
+| Rename `Dashboard-logo.png` → `dashboard-logo.png` | Ruwithma | 1 min |
+| Remove `console.log('[bank-sql]', sql)` | Neo | 1 min |
+| Remove `databaseUrl: connectionString` from `serviceFailure()` | Neo | 1 min |
+| Add `useState` + `onChange` to login form inputs (prep for API wiring) | Zenith | 10 min |
 
 ---
 
-### F4. Failure Screen Shows Hardcoded Balance
+## All Bugs Reference
 
-**File:** `app/bank-transfer/page.tsx:308-309`  
-**Impact:** Misleading error information
+| ID | Severity | Category | Issue | Phase | Owner |
+|----|----------|----------|-------|-------|-------|
+| S1 | CRITICAL | Security | SQL Injection in every API route | 1 | Neo |
+| S2 | CRITICAL | Security | GET /api/auth/login dumps all passwords | 1 | Gimhani |
+| S3 | CRITICAL | Security | Admin endpoint leaks process.env + all data | 1 | Gimhani |
+| S4 | CRITICAL | Security | PINs exposed via query parameter | 1 | Gimhani |
+| S5 | CRITICAL | Security | Forgeable session tokens + unsigned cookies | 1 | Neo |
+| S6 | CRITICAL | Security | Plaintext passwords and PINs | 1 | Neo |
+| S7 | HIGH | Security | Error responses leak connection string + stack | 1 | Neo |
+| S8 | HIGH | Security | SQL with user data logged to console | 1 | Neo |
+| S9 | HIGH | Security | Login response includes executed SQL | 1 | Gimhani |
+| S10 | MEDIUM | Security | Hardcoded credentials in source code | 1 | Neo |
+| L1 | CRITICAL | Logical | Transfer not atomic — money can vanish | 1 | Gimhani |
+| L2 | CRITICAL | Logical | No balance check — unlimited overdraft | 1 | Gimhani |
+| L3 | CRITICAL | Logical | Negative amounts accepted — reverse theft | 1 | Gimhani |
+| L4 | CRITICAL | Logical | No ownership check on transfers | 1 | Gimhani |
+| L5 | MEDIUM | Logical | SERIAL id collision on first real signup | 1 | Neo |
+| F1 | CRITICAL | Functional | Frontend never calls backend — fully disconnected | 2 | Zenith + Ruwithma |
+| F2 | HIGH | Functional | No route protection — root skips login | 1 | Neo |
+| F3 | HIGH | Functional | BACK button navigates to failure screen | QW | Ruwithma |
+| F4 | MEDIUM | Functional | Hardcoded balance on failure screen | 2 | Ruwithma |
+| F5 | HIGH | Functional | Dashboard entirely hardcoded | 2 | Zenith |
+| F6 | MEDIUM | Functional | Asset case mismatch — 404 on Linux | QW | Ruwithma |
+| F7 | MEDIUM | Functional | Sensitive data in URL query string | 2 | Ruwithma |
+| F8 | HIGH | Functional | Sign-up and reset password non-functional | 2 | Zenith |
+| F9 | HIGH | Functional | E-statement fetches nothing | 2 | Ruwithma |
+| F10 | MEDIUM | Functional | Smart Spend page is blank | 3 | Ruwithma |
 
-The failure screen always shows "Current Balance is: Rs.500" regardless of actual balance.
-
-**Fix direction:** Fetch and display the actual account balance.
-
----
-
-### F5. Dashboard Data is Entirely Hardcoded
-
-**File:** `app/dashboard/page.tsx:6-22, 43-46`  
-**Impact:** Dashboard never shows real account data
-
-Username "Dilara", balance "Rs. 100,000", and all transaction data are hardcoded constants. Nothing is fetched from the database.
-
-**Fix direction:** Fetch user data and recent transactions from the API on page load.
-
----
-
-### F6. Asset Case Mismatch — 404 on Linux/Docker
-
-**File:** `app/dashboard/page.tsx:55`  
-**Impact:** Dashboard image breaks in production (case-sensitive file systems)
-
-References `/dashboard-logo.png` but the actual file is `/Dashboard-logo.png`. Works on macOS (case-insensitive) but 404s on Linux/Docker.
-
-**Fix direction:** Rename the file to match the reference, or update the reference.
-
----
-
-### F7. Sensitive Data in URL Query String
-
-**File:** `app/bank-accounts/page.tsx:217`  
-**Impact:** Account numbers and emails stored in browser history and server logs
-
-`handleUpdateAccount` puts `accountNumber`, `accountName`, `email`, and `nickname` directly in the URL query string. This data persists in browser history, bookmarks, and server access logs.
-
-**Fix direction:** Use POST requests or component state instead of URL parameters for sensitive data.
-
----
-
-### F8. Sign-Up and Reset Password Pages Are Non-Functional Shells
-
-**Files:** `app/(accounts)/sign-up/page.tsx`, `app/(accounts)/reset-password/page.tsx`  
-**Impact:** Users cannot register or recover passwords
-
-Both pages render form fields but have no submission logic, no API calls, no state management, and no corresponding backend endpoints.
-
-**Fix direction:** Implement `/api/auth/signup` and `/api/auth/reset-password` endpoints, and wire the forms to them.
-
----
-
-### F9. E-Statement Page Fetches Nothing
-
-**File:** `app/e-statement/page.tsx`  
-**Impact:** Statement page shows empty template regardless of input
-
-The account number input has no `onChange` handler, no `value` state, and no fetch logic. The statement template below shows empty `<dd>` elements and an empty table.
-
-**Fix direction:** Bind the input, fetch transaction data on submit, and populate the statement template.
-
----
-
-### F10. Smart Spend Page is Blank
-
-**File:** `app/smart-spend/page.tsx`  
-**Impact:** Menu item leads to an empty page
-
-The file exists but is empty (1 line, no content). The sidebar links to it but nothing renders.
-
-**Fix direction:** Implement the page or remove from sidebar navigation.
-
----
-
-## Summary Table
-
-| ID | Severity | Category | Issue |
-|----|----------|----------|-------|
-| S1 | CRITICAL | Security | SQL Injection in every API route |
-| S2 | CRITICAL | Security | GET /api/auth/login dumps all passwords |
-| S3 | CRITICAL | Security | Admin endpoint leaks process.env + all data |
-| S4 | CRITICAL | Security | PINs exposed via query parameter |
-| S5 | CRITICAL | Security | Forgeable session tokens + unsigned cookies |
-| S6 | CRITICAL | Security | Plaintext passwords and PINs |
-| S7 | HIGH | Security | Error responses leak connection string + stack |
-| S8 | HIGH | Security | SQL with user data logged to console |
-| S9 | HIGH | Security | Login response includes executed SQL |
-| S10 | MEDIUM | Security | Hardcoded credentials in source code |
-| L1 | CRITICAL | Logical | Transfer not atomic — money can vanish |
-| L2 | CRITICAL | Logical | No balance check — unlimited overdraft |
-| L3 | CRITICAL | Logical | Negative amounts accepted — reverse theft |
-| L4 | CRITICAL | Logical | No ownership check on transfers |
-| L5 | MEDIUM | Logical | SERIAL id collision on first real signup |
-| F1 | CRITICAL | Functional | Frontend never calls backend — fully disconnected |
-| F2 | HIGH | Functional | No route protection — pages load without login |
-| F3 | HIGH | Functional | BACK button navigates to failure screen |
-| F4 | MEDIUM | Functional | Hardcoded balance on failure screen |
-| F5 | HIGH | Functional | Dashboard entirely hardcoded |
-| F6 | MEDIUM | Functional | Asset case mismatch — 404 on Linux |
-| F7 | MEDIUM | Functional | Sensitive data in URL query string |
-| F8 | HIGH | Functional | Sign-up and reset password are non-functional |
-| F9 | HIGH | Functional | E-statement fetches nothing |
-| F10 | MEDIUM | Functional | Smart Spend page is blank |
-
-**Total: 10 Security, 5 Logical, 10 Functional bugs identified.**
+**Total: 10 Security, 5 Logical, 10 Functional — 25 bugs across 3 phases.**
