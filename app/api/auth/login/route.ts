@@ -19,8 +19,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           ok: false,
-          message: 'Invalid login.',
-          sql
+          message: 'Invalid login.'
         },
         { status: 401 }
       )
@@ -37,8 +36,7 @@ export async function POST(request: Request) {
         token: Buffer.from(`${user.id}:${user.role}:session-token`).toString(
           'base64'
         ),
-        user,
-        sql
+        user
       },
       { headers }
     )
