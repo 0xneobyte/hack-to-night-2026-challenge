@@ -111,7 +111,7 @@ export default function AccountsPage() {
                         </Button>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-2xl font-semibold tabular-nums">
+                        <p className="text-2xl font-semibold font-playfair tabular-nums">
                           {formatCurrency(acc.balance)}
                         </p>
                         <Badge variant="outline" className="mt-2">

@@ -115,7 +115,7 @@ export default function DashboardPage() {
                     <Card className="@container/card">
                       <CardHeader>
                         <CardDescription>Total Balance</CardDescription>
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                        <CardTitle className="text-2xl font-semibold font-playfair tabular-nums @[250px]/card:text-3xl">
                           {formatCurrency(totalBalance)}
                         </CardTitle>
                         <CardAction>
@@ -137,7 +137,7 @@ export default function DashboardPage() {
                       <Card key={acc.id} className="@container/card">
                         <CardHeader>
                           <CardDescription>{acc.account_name}</CardDescription>
-                          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                          <CardTitle className="text-2xl font-semibold font-playfair tabular-nums @[250px]/card:text-3xl">
                             {formatCurrency(acc.balance)}
                           </CardTitle>
                           <CardAction>
@@ -158,7 +158,7 @@ export default function DashboardPage() {
                     <Card className="@container/card">
                       <CardHeader>
                         <CardDescription>Transactions</CardDescription>
-                        <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                        <CardTitle className="text-2xl font-semibold font-playfair tabular-nums @[250px]/card:text-3xl">
                           {txCount}
                         </CardTitle>
                         <CardAction>

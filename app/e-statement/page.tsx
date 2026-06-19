@@ -155,7 +155,7 @@ export default function EStatementPage() {
                     <p className="text-sm text-muted-foreground">
                       Opening Balance
                     </p>
-                    <p className="text-lg font-semibold tabular-nums">
+                    <p className="text-lg font-semibold font-playfair tabular-nums">
                       {formatCurrency(openingBalance)}
                     </p>
                   </CardContent>
@@ -165,7 +165,7 @@ export default function EStatementPage() {
                     <p className="text-sm text-muted-foreground">
                       Total Credits
                     </p>
-                    <p className="text-lg font-semibold tabular-nums text-emerald-600">
+                    <p className="text-lg font-semibold font-playfair tabular-nums text-emerald-600">
                       {formatCurrency(totalCredits)}
                     </p>
                   </CardContent>
@@ -175,7 +175,7 @@ export default function EStatementPage() {
                     <p className="text-sm text-muted-foreground">
                       Total Debits
                     </p>
-                    <p className="text-lg font-semibold tabular-nums text-destructive">
+                    <p className="text-lg font-semibold font-playfair tabular-nums text-destructive">
                       {formatCurrency(totalDebits)}
                     </p>
                   </CardContent>
@@ -185,7 +185,7 @@ export default function EStatementPage() {
                     <p className="text-sm text-muted-foreground">
                       Closing Balance
                     </p>
-                    <p className="text-lg font-semibold tabular-nums">
+                    <p className="text-lg font-semibold font-playfair tabular-nums">
                       {formatCurrency(closingBalance)}
                     </p>
                   </CardContent>

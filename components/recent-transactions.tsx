@@ -91,7 +91,7 @@ export function RecentTransactions({
                     </TableCell>
                     <TableCell className="text-right">
                       <span
-                        className={`text-sm font-semibold tabular-nums ${
+                        className={`text-sm font-semibold font-playfair tabular-nums ${
                           isSent ? '' : 'text-emerald-500'
                         }`}
                       >
