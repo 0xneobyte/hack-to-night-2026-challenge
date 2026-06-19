@@ -1,20 +1,47 @@
-import Sidebar from '@/components/sidebar'
+'use client'
+
+import { AppSidebar } from '@/components/app-sidebar'
+import { SiteHeader } from '@/components/site-header'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
+import { PieChartIcon } from 'lucide-react'
 
 export default function SmartSpendPage() {
   return (
-    <div className="min-h-screen bg-bg-light font-geist p-0">
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 p-12 text-black">
-          <h2 className="text-2xl font-semibold mb-6">Smart Spend</h2>
-          <div className="rounded-[32px] bg-white px-10 py-8 shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)]">
-            <p className="text-gray-500">
-              Coming soon. Spending analytics and budget tracking will appear
-              here.
-            </p>
-          </div>
-        </main>
-      </div>
-    </div>
+    <SidebarProvider
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 72)',
+          '--header-height': 'calc(var(--spacing) * 12)'
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col items-center justify-center p-4 md:p-6">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-muted">
+                <PieChartIcon className="size-6 text-muted-foreground" />
+              </div>
+              <CardTitle className="mt-4">Smart Spend</CardTitle>
+              <CardDescription>
+                Spending analytics and budget tracking will appear here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-sm text-muted-foreground">Coming soon</p>
+            </CardContent>
+          </Card>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

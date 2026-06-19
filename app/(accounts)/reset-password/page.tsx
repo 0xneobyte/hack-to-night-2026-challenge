@@ -1,8 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import AuthButton from '@/components/authButton'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldDescription
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 
 type Stage = 'request' | 'sent' | 'update' | 'done'
@@ -16,9 +24,6 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Detect when the user arrives via the recovery link (Supabase sets
-  // the session automatically via the URL hash — we listen for the
-  // PASSWORD_RECOVERY event to switch to the "set new password" stage).
   useEffect(() => {
     const supabase = createClient()
     const {
@@ -41,14 +46,12 @@ export default function ResetPasswordPage() {
       email,
       { redirectTo: `${window.location.origin}/reset-password` }
     )
-
     setLoading(false)
 
     if (resetError) {
       setError(resetError.message)
       return
     }
-
     setStage('sent')
   }
 
@@ -82,123 +85,114 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <section className="mx-auto flex min-h-[500px] w-full max-w-[1100px] items-center justify-center rounded-[58px] bg-white px-8 py-10 shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)] lg:min-h-[684px]">
-      <div className="w-full max-w-[670px]">
+    <div className="flex min-h-svh items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        {stage === 'request' && (
+          <form onSubmit={handleRequestReset} className="flex flex-col gap-6">
+            <FieldGroup>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <h1 className="text-2xl font-bold">Reset Password</h1>
+                <p className="text-sm text-balance text-muted-foreground">
+                  Enter your email to receive a reset link
+                </p>
+              </div>
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-background"
+                />
+              </Field>
+              {error && (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <Field>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+              </Field>
+              <Field>
+                <FieldDescription className="text-center">
+                  <Link href="/login" className="underline underline-offset-4">
+                    Back to login
+                  </Link>
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+          </form>
+        )}
+
         {stage === 'sent' && (
-          <div className="text-center">
-            <div className="mb-6 text-6xl">✉️</div>
-            <h2 className="mb-4 text-3xl font-bold text-black">
-              Check your email
-            </h2>
-            <p className="text-gray-600">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="text-4xl">&#9993;</div>
+            <h2 className="text-2xl font-bold">Check your email</h2>
+            <p className="text-sm text-muted-foreground">
               We&apos;ve sent a password reset link to <strong>{email}</strong>.
-              Click it to set a new password.
             </p>
           </div>
         )}
 
-        {stage === 'done' && (
-          <div className="text-center">
-            <div className="mb-6 text-6xl">✅</div>
-            <h2 className="mb-4 text-3xl font-bold text-black">
-              Password updated!
-            </h2>
-            <p className="text-gray-600">Redirecting you to login…</p>
-          </div>
-        )}
-
-        {stage === 'request' && (
-          <form onSubmit={handleRequestReset}>
-            <h1 className="mb-16 text-center text-[2.6rem] font-bold text-black text-balance">
-              RESET PASSWORD
-            </h1>
-
-            <div className="space-y-8">
-              <div className="grid items-center gap-4 md:grid-cols-[120px_1fr]">
-                <label className="text-xl text-black" htmlFor="reset-email">
-                  Email:
-                </label>
-                <input
-                  id="reset-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-[64px] rounded-[40px] border-0 bg-[#d9d9d9] px-7 text-lg text-black outline-none"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <p className="mt-4 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">
-                {error}
-              </p>
-            )}
-
-            <div className="mt-12 flex justify-center">
-              <AuthButton type="submit" disabled={loading}>
-                {loading ? 'SENDING…' : 'SEND RESET LINK'}
-              </AuthButton>
-            </div>
-          </form>
-        )}
-
         {stage === 'update' && (
-          <form onSubmit={handleUpdatePassword}>
-            <h1 className="mb-16 text-center text-[2.6rem] font-bold text-black text-balance">
-              SET NEW PASSWORD
-            </h1>
-
-            <div className="space-y-8">
-              <div className="grid items-center gap-4 md:grid-cols-[160px_1fr]">
-                <label
-                  className="text-xl text-black"
-                  htmlFor="reset-new-password"
-                >
-                  New Password:
-                </label>
-                <input
-                  id="reset-new-password"
+          <form onSubmit={handleUpdatePassword} className="flex flex-col gap-6">
+            <FieldGroup>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <h1 className="text-2xl font-bold">Set New Password</h1>
+              </div>
+              <Field>
+                <FieldLabel htmlFor="new-password">New Password</FieldLabel>
+                <Input
+                  id="new-password"
                   type="password"
+                  required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  className="h-[64px] rounded-[40px] border-0 bg-[#d9d9d9] px-7 text-lg text-black outline-none"
+                  className="bg-background"
                 />
-              </div>
-
-              <div className="grid items-center gap-4 md:grid-cols-[160px_1fr]">
-                <label
-                  className="text-xl text-black"
-                  htmlFor="reset-confirm-password"
-                >
-                  Confirm Password:
-                </label>
-                <input
-                  id="reset-confirm-password"
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="confirm-password">
+                  Confirm Password
+                </FieldLabel>
+                <Input
+                  id="confirm-password"
                   type="password"
+                  required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="h-[64px] rounded-[40px] border-0 bg-[#d9d9d9] px-7 text-lg text-black outline-none"
+                  className="bg-background"
                 />
-              </div>
-            </div>
-
-            {error && (
-              <p className="mt-4 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">
-                {error}
-              </p>
-            )}
-
-            <div className="mt-12 flex justify-center">
-              <AuthButton type="submit" disabled={loading}>
-                {loading ? 'UPDATING…' : 'UPDATE PASSWORD'}
-              </AuthButton>
-            </div>
+              </Field>
+              {error && (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <Field>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Password'}
+                </Button>
+              </Field>
+            </FieldGroup>
           </form>
         )}
+
+        {stage === 'done' && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="text-4xl">&#10003;</div>
+            <h2 className="text-2xl font-bold">Password updated!</h2>
+            <p className="text-sm text-muted-foreground">
+              Redirecting you to login...
+            </p>
+          </div>
+        )}
       </div>
-    </section>
+    </div>
   )
 }

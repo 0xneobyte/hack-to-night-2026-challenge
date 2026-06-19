@@ -1,7 +1,34 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Sidebar from '@/components/sidebar'
+import { AppSidebar } from '@/components/app-sidebar'
+import { SiteHeader } from '@/components/site-header'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 
 interface Account {
   id: number
@@ -9,7 +36,6 @@ interface Account {
   account_name: string
   balance: number
 }
-
 interface Transaction {
   id: number
   from_account: string
@@ -20,12 +46,24 @@ interface Transaction {
   created_at: string
 }
 
+function formatCurrency(n: number) {
+  return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
 export default function EStatementPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedAccount, setSelectedAccount] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(false)
   const [fetched, setFetched] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/accounts')
@@ -41,205 +79,183 @@ export default function EStatementPage() {
 
   const account = accounts.find((a) => a.account_number === selectedAccount)
 
-  async function handleFetch(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleFetch() {
     if (!selectedAccount) return
     setLoading(true)
     const res = await fetch(`/api/transactions?account=${selectedAccount}`)
     const json = await res.json()
-    if (json.ok) {
+    if (json.ok)
       setTransactions(json.data?.transactions ?? json.transactions ?? [])
-    }
     setFetched(true)
     setLoading(false)
   }
 
-  function formatCurrency(n: number) {
-    return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
-  }
-
-  function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
   const totalDebits = transactions
     .filter((t) => t.from_account === selectedAccount)
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-
+    .reduce((s, t) => s + Number(t.amount), 0)
   const totalCredits = transactions
     .filter((t) => t.to_account === selectedAccount)
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-
+    .reduce((s, t) => s + Number(t.amount), 0)
   const closingBalance = account?.balance ?? 0
   const openingBalance = closingBalance + totalDebits - totalCredits
 
   return (
-    <div className="min-h-screen bg-bg-light font-geist p-0">
-      <div className="flex min-h-screen">
-        <Sidebar />
-
-        <main className="flex-1 p-12 text-black">
-          <div className="mb-10 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">E-Statement</h2>
-            <div className="flex items-center gap-3">
-              <div className="size-12 overflow-hidden rounded-full border-2 border-gray-200">
-                <img
-                  src="/avatar.png"
-                  alt="avatar"
-                  className="size-full bg-white object-cover"
-                />
+    <SidebarProvider
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 72)',
+          '--header-height': 'calc(var(--spacing) * 12)'
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col p-4 md:p-6 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>E-Statement</CardTitle>
+              <CardDescription>View your account statement</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                <div className="flex flex-col gap-2 flex-1">
+                  <Label>Select Account</Label>
+                  <Select
+                    value={selectedAccount}
+                    onValueChange={setSelectedAccount}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((a) => (
+                        <SelectItem
+                          key={a.account_number}
+                          value={a.account_number}
+                        >
+                          {a.account_name} ({a.account_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleFetch} disabled={loading}>
+                  {loading ? 'Loading...' : 'View Statement'}
+                </Button>
               </div>
-            </div>
-          </div>
-
-          <form
-            onSubmit={handleFetch}
-            className="rounded-[32px] bg-white px-10 py-8 text-black shadow-[0_1px_3px_0_rgba(0,0,0,0.30),0_4px_8px_3px_rgba(0,0,0,0.15)]"
-          >
-            <div className="grid items-end gap-6 text-xl md:grid-cols-[auto_1fr_auto]">
-              <span>Select account:</span>
-              <select
-                value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
-                className="min-w-0 border-0 border-b border-black bg-transparent px-2 py-1 text-xl text-black outline-none"
-              >
-                {accounts.map((a) => (
-                  <option key={a.account_number} value={a.account_number}>
-                    {a.account_name} ({a.account_number})
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                disabled={loading}
-                className="rounded-full bg-[#450043] px-6 py-2 text-base text-white"
-              >
-                {loading ? 'Loading...' : 'View Statement'}
-              </button>
-            </div>
-          </form>
+            </CardContent>
+          </Card>
 
           {fetched && account && (
-            <section className="mt-6 min-h-[560px] bg-[#e7e7e7] px-7 py-9 text-black">
-              <div className="max-w-full">
-                <img
-                  src="/loginlogo.png"
-                  alt="Nova Bank"
-                  className="size-[86px] rounded-full object-cover"
-                />
-
-                <div className="mt-5 text-sm leading-tight">
-                  <h2 className="font-bold">Bank Statement</h2>
-                  <dl>
-                    <div>
-                      <dt className="inline">Account Holder: </dt>
-                      <dd className="inline">{account.account_name}</dd>
-                    </div>
-                    <div>
-                      <dt className="inline">Account Number: </dt>
-                      <dd className="inline">{account.account_number}</dd>
-                    </div>
-                    <div>
-                      <dt className="inline">Current Balance: </dt>
-                      <dd className="inline">
-                        {formatCurrency(account.balance)}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="mt-9 text-sm">
-                  <h3 className="font-bold">Account Summary</h3>
-                  <table className="mt-4 w-full table-fixed border-collapse text-left">
-                    <thead>
-                      <tr>
-                        <th className="pr-4 font-normal">Opening Balance</th>
-                        <th className="pr-4 font-normal">Total Credits</th>
-                        <th className="pr-4 font-normal">Total Debits</th>
-                        <th className="font-normal">Closing Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="pt-2 font-semibold">
-                          {formatCurrency(openingBalance)}
-                        </td>
-                        <td className="pt-2 font-semibold text-green-700">
-                          {formatCurrency(totalCredits)}
-                        </td>
-                        <td className="pt-2 font-semibold text-red-700">
-                          {formatCurrency(totalDebits)}
-                        </td>
-                        <td className="pt-2 font-semibold">
-                          {formatCurrency(closingBalance)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mt-10 border-t border-black pt-9">
-                  <h3 className="text-sm font-bold">Transaction Details</h3>
-                  <div className="mt-5 overflow-x-auto">
-                    <table className="w-full min-w-[760px] table-fixed border-collapse text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-black">
-                          <th className="w-[13%] pb-3 font-normal">Date</th>
-                          <th className="w-[22%] pb-3 font-normal">
-                            Description
-                          </th>
-                          <th className="w-[18%] pb-3 font-normal">
-                            Reference ID
-                          </th>
-                          <th className="w-[15%] pb-3 font-normal">Debit</th>
-                          <th className="w-[16%] pb-3 font-normal">Credit</th>
-                          <th className="w-[16%] pb-3 font-normal">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transactions.length === 0 ? (
-                          <tr>
-                            <td className="pt-4 text-gray-500" colSpan={6}>
-                              No transactions found
-                            </td>
-                          </tr>
-                        ) : (
-                          transactions.map((t) => {
-                            const isDebit = t.from_account === selectedAccount
-                            return (
-                              <tr
-                                key={t.id}
-                                className="border-b border-gray-300"
-                              >
-                                <td className="py-2">
-                                  {formatDate(t.created_at)}
-                                </td>
-                                <td className="py-2">{t.description || '-'}</td>
-                                <td className="py-2">TXN-{t.id}</td>
-                                <td className="py-2 text-red-700">
-                                  {isDebit ? formatCurrency(t.amount) : '-'}
-                                </td>
-                                <td className="py-2 text-green-700">
-                                  {!isDebit ? formatCurrency(t.amount) : '-'}
-                                </td>
-                                <td className="py-2">{t.status}</td>
-                              </tr>
-                            )
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            <>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">
+                      Opening Balance
+                    </p>
+                    <p className="text-lg font-semibold tabular-nums">
+                      {formatCurrency(openingBalance)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">
+                      Total Credits
+                    </p>
+                    <p className="text-lg font-semibold tabular-nums text-emerald-600">
+                      {formatCurrency(totalCredits)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">
+                      Total Debits
+                    </p>
+                    <p className="text-lg font-semibold tabular-nums text-destructive">
+                      {formatCurrency(totalDebits)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">
+                      Closing Balance
+                    </p>
+                    <p className="text-lg font-semibold tabular-nums">
+                      {formatCurrency(closingBalance)}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-            </section>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transaction Details</CardTitle>
+                  <CardDescription>
+                    {account.account_name} — {account.account_number}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Ref</TableHead>
+                        <TableHead className="text-right">Debit</TableHead>
+                        <TableHead className="text-right">Credit</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="text-center text-muted-foreground py-8"
+                          >
+                            No transactions found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        transactions.map((t) => {
+                          const isDebit = t.from_account === selectedAccount
+                          return (
+                            <TableRow key={t.id}>
+                              <TableCell className="text-sm">
+                                {formatDate(t.created_at)}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {t.description || '-'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                TXN-{t.id}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium text-destructive">
+                                {isDebit ? formatCurrency(t.amount) : '-'}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium text-emerald-600">
+                                {!isDebit ? formatCurrency(t.amount) : '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{t.status}</Badge>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
           )}
-        </main>
-      </div>
-    </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

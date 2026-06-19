@@ -1,7 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Sidebar from '@/components/sidebar'
+import { AppSidebar } from '@/components/app-sidebar'
+import { SiteHeader } from '@/components/site-header'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { CheckCircle2Icon, AlertTriangleIcon } from 'lucide-react'
 
 interface Account {
   id: number
@@ -12,21 +32,19 @@ interface Account {
 
 type Step = 'form' | 'confirm' | 'success' | 'failure'
 
-type Errors = Partial<{
-  amount: string
-  accountNumber: string
-  fromAccount: string
-}>
+function formatCurrency(n: number) {
+  return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
+}
 
 export default function BankTransferPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [fromAccount, setFromAccount] = useState('')
   const [amount, setAmount] = useState('')
-  const [accountNumber, setAccountNumber] = useState('')
+  const [toAccount, setToAccount] = useState('')
   const [description, setDescription] = useState('')
-  const [errors, setErrors] = useState<Errors>({})
+  const [error, setError] = useState('')
   const [step, setStep] = useState<Step>('form')
-  const [confirmation, setConfirmation] = useState<string | null>(null)
+  const [txId, setTxId] = useState<string | null>(null)
   const [failMessage, setFailMessage] = useState('')
   const [failBalance, setFailBalance] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,309 +61,223 @@ export default function BankTransferPage() {
       })
   }, [])
 
-  const selectedAccount = accounts.find((a) => a.account_number === fromAccount)
-
-  function validate() {
-    const e: Errors = {}
-    if (!fromAccount) e.fromAccount = 'Select a source account'
-    if (!amount) e.amount = 'Amount is required'
-    else if (Number(amount) <= 0 || isNaN(Number(amount)))
-      e.amount = 'Enter a valid positive amount'
-    if (!accountNumber) e.accountNumber = 'Recipient account number is required'
-    else if (!/^\d{6,}$/.test(accountNumber))
-      e.accountNumber = 'Enter a valid account number'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
+  const selected = accounts.find((a) => a.account_number === fromAccount)
 
   function handleNext(e: React.FormEvent) {
     e.preventDefault()
-    if (validate()) setStep('confirm')
+    if (!fromAccount || !toAccount || !amount || Number(amount) <= 0) {
+      setError('Please fill all required fields with valid values')
+      return
+    }
+    setError('')
+    setStep('confirm')
   }
 
-  async function handleTransfer(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleTransfer() {
     setLoading(true)
-
     const res = await fetch('/api/transfer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fromAccount,
-        toAccount: accountNumber,
+        toAccount,
         amount: Number(amount),
         description
       })
     })
-
     const json = await res.json()
     setLoading(false)
 
     if (json.ok) {
-      const txId = json.data?.transaction_id ?? json.transaction_id
-      setConfirmation(String(txId))
+      setTxId(String(json.data?.transaction_id ?? json.transaction_id))
       setStep('success')
     } else {
-      const msg = json.data?.message ?? json.message ?? 'Transfer failed'
-      setFailMessage(msg)
-      const bal = json.data?.balance ?? json.balance ?? selectedAccount?.balance
-      setFailBalance(bal != null ? Number(bal) : null)
+      setFailMessage(json.data?.message ?? json.message ?? 'Transfer failed')
+      setFailBalance(json.data?.balance ?? selected?.balance ?? null)
       setStep('failure')
     }
   }
 
-  function resetForm() {
+  function reset() {
     setAmount('')
-    setAccountNumber('')
+    setToAccount('')
     setDescription('')
-    setErrors({})
-    setConfirmation(null)
-    setFailMessage('')
-    setFailBalance(null)
+    setError('')
+    setTxId(null)
     setStep('form')
   }
 
-  function formatCurrency(n: number) {
-    return `Rs. ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
-  }
-
   return (
-    <div className="min-h-screen bg-bg-light font-geist p-0">
-      <div className="flex min-h-screen">
-        <Sidebar />
-
-        <main className="flex-1 p-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Bank Transfer</h2>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
-                <img
-                  src="/avatar.png"
-                  alt="avatar"
-                  className="w-full h-full object-cover bg-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {step === 'form' && (
-            <form onSubmit={handleNext} className="transfer-card p-8">
-              <div className="grid grid-cols-12 gap-y-6 gap-x-8 items-center">
-                <label className="col-span-3 text-gray-700">
-                  From Account :
-                </label>
-                <div className="col-span-9">
-                  <select
-                    value={fromAccount}
-                    onChange={(e) => setFromAccount(e.target.value)}
-                    className="underline-input bg-transparent"
-                  >
-                    {accounts.map((a) => (
-                      <option key={a.account_number} value={a.account_number}>
-                        {a.account_name} ({a.account_number}) —{' '}
-                        {formatCurrency(a.balance)}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.fromAccount && (
-                    <div className="text-sm text-red-600 mt-1">
-                      {errors.fromAccount}
+    <SidebarProvider
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 72)',
+          '--header-height': 'calc(var(--spacing) * 12)'
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col items-center p-4 md:p-6">
+          <div className="w-full max-w-xl">
+            {step === 'form' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bank Transfer</CardTitle>
+                  <CardDescription>
+                    Send money to another account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleNext} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                      <Label>From Account</Label>
+                      <Select
+                        value={fromAccount}
+                        onValueChange={setFromAccount}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accounts.map((a) => (
+                            <SelectItem
+                              key={a.account_number}
+                              value={a.account_number}
+                            >
+                              {a.account_name} — {formatCurrency(a.balance)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </div>
-
-                <label className="col-span-3 text-gray-700">Amount :</label>
-                <div className="col-span-9">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="underline-input"
-                    placeholder="0.00"
-                  />
-                  {errors.amount && (
-                    <div className="text-sm text-red-600 mt-1">
-                      {errors.amount}
+                    <div className="flex flex-col gap-2">
+                      <Label>To Account Number</Label>
+                      <Input
+                        value={toAccount}
+                        onChange={(e) => setToAccount(e.target.value)}
+                        placeholder="Recipient account number"
+                        required
+                      />
                     </div>
-                  )}
-                </div>
-
-                <label className="col-span-3 text-gray-700">
-                  To Account Number :
-                </label>
-                <div className="col-span-9">
-                  <input
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="underline-input"
-                    placeholder="Recipient account number"
-                  />
-                  {errors.accountNumber && (
-                    <div className="text-sm text-red-600 mt-1">
-                      {errors.accountNumber}
+                    <div className="flex flex-col gap-2">
+                      <Label>Amount</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        required
+                      />
                     </div>
-                  )}
-                </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Description (optional)</Label>
+                      <Input
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="What's this for?"
+                      />
+                    </div>
+                    {error && (
+                      <p className="text-sm text-destructive">{error}</p>
+                    )}
+                    <Button type="submit" className="mt-2">
+                      Next
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
 
-                <label className="col-span-3 text-gray-700">
-                  Description :
-                </label>
-                <div className="col-span-9">
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    className="description-box"
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-center mt-10">
-                <button type="submit" className="next-btn">
-                  NEXT
-                </button>
-              </div>
-            </form>
-          )}
-
-          {step === 'confirm' && (
-            <div className="transfer-card p-8">
-              <h3 className="text-center text-2xl font-semibold mb-6">
-                Confirm Transfer
-              </h3>
-              <div className="bg-white rounded-lg p-6 shadow-lg max-w-xl mx-auto text-center">
-                <p className="mb-2">
-                  From <strong>{selectedAccount?.account_name}</strong> (
-                  {fromAccount})
-                </p>
-                <p className="mb-4">
-                  Transfer <strong>{formatCurrency(Number(amount))}</strong> to
-                  account <strong>{accountNumber}</strong>
-                </p>
-                {description && (
-                  <p className="text-sm text-gray-500 mb-4">{description}</p>
-                )}
-                <div className="mb-6">
-                  <img
-                    src="/transfer-illustration.png"
-                    alt="illustration"
-                    className="mx-auto"
-                  />
-                </div>
-                <div className="flex justify-center gap-4">
-                  <button onClick={() => setStep('form')} className="next-btn">
-                    BACK
-                  </button>
-                  <button
-                    onClick={handleTransfer}
-                    className="next-btn transfer-btn"
-                    disabled={loading}
-                  >
-                    {loading ? 'PROCESSING...' : 'TRANSFER'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 'success' && (
-            <div className="transfer-card p-8">
-              <div className="relative">
-                <div className="success-check inside-check">
-                  <svg
-                    viewBox="0 0 120 120"
-                    width="100"
-                    height="100"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle cx="60" cy="60" r="50" fill="#dff7e7" />
-                    <circle cx="60" cy="60" r="40" fill="#10a654" />
-                    <path
-                      d="M38 62 L54 78 L82 42"
-                      stroke="#fff"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-center text-2xl font-semibold mb-4">
-                  Transfer Successful!
-                </h3>
-                <p className="text-center text-sm text-gray-500 mb-10">
-                  Transaction ID : {confirmation}
-                </p>
-                <div className="flex justify-center">
-                  <button
-                    onClick={resetForm}
-                    className="transfer-btn success-btn"
-                  >
-                    <span className="mr-3">&lsaquo;</span> BACK TO HOME
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 'failure' && (
-            <div className="transfer-card p-8">
-              <div className="relative">
-                <div className="success-check inside-check">
-                  <svg
-                    viewBox="0 0 120 120"
-                    width="220"
-                    height="220"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle cx="60" cy="60" r="50" fill="#ffdede" />
-                    <circle cx="60" cy="60" r="40" fill="#ffb6b6" />
-                    <path
-                      d="M60 30 L93 86 L27 86 Z"
-                      fill="#ff4d4f"
-                      stroke="#fff"
-                      strokeWidth="4"
-                      strokeLinejoin="round"
-                    />
-                    <text
-                      x="60"
-                      y="78"
-                      textAnchor="middle"
-                      fontSize="36"
-                      fill="#fff"
-                      fontWeight="700"
+            {step === 'confirm' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Confirm Transfer</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="rounded-lg border p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">From</span>
+                      <span className="font-medium">
+                        {selected?.account_name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">To</span>
+                      <span className="font-medium">{toAccount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Amount</span>
+                      <span className="font-semibold">
+                        {formatCurrency(Number(amount))}
+                      </span>
+                    </div>
+                    {description && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Note</span>
+                        <span>{description}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep('form')}
+                      className="flex-1"
                     >
-                      !
-                    </text>
-                  </svg>
-                </div>
-                <h3 className="text-center text-2xl font-semibold mb-4">
-                  Transaction Failed!
-                </h3>
-                <p className="text-center text-sm text-gray-500 mb-6">
-                  {failMessage}
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleTransfer}
+                      disabled={loading}
+                      className="flex-1"
+                    >
+                      {loading ? 'Processing...' : 'Transfer'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {step === 'success' && (
+              <Card>
+                <CardContent className="flex flex-col items-center gap-4 py-10">
+                  <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
+                    <CheckCircle2Icon className="size-8 text-emerald-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold">
+                    Transfer Successful!
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Transaction ID: {txId}
+                  </p>
+                  <Button onClick={reset}>Back to Transfers</Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {step === 'failure' && (
+              <Card>
+                <CardContent className="flex flex-col items-center gap-4 py-10">
+                  <div className="flex size-16 items-center justify-center rounded-full bg-red-100">
+                    <AlertTriangleIcon className="size-8 text-destructive" />
+                  </div>
+                  <h2 className="text-xl font-semibold">Transfer Failed</h2>
+                  <p className="text-sm text-muted-foreground">{failMessage}</p>
                   {failBalance != null && (
-                    <>
-                      <br />
+                    <p className="text-sm text-muted-foreground">
                       Current Balance: {formatCurrency(failBalance)}
-                    </>
+                    </p>
                   )}
-                </p>
-                <div className="flex justify-center">
-                  <button
-                    onClick={resetForm}
-                    className="transfer-btn success-btn"
-                  >
-                    <span className="mr-3">&lsaquo;</span> BACK TO HOME
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-    </div>
+                  <Button onClick={reset}>Try Again</Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

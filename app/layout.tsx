@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Bai_Jamjuree, Inter } from 'next/font/google'
+import { Geist, Geist_Mono, Inter } from 'next/font/google'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 import { cn } from '@/lib/utils'
 
@@ -15,15 +16,9 @@ const geistMono = Geist_Mono({
   subsets: ['latin']
 })
 
-const bai = Bai_Jamjuree({
-  variable: '--font-bai',
-  weight: ['200', '300', '400', '500', '600', '700'],
-  subsets: ['latin']
-})
-
 export const metadata: Metadata = {
-  title: 'Smart Spend - Banking Solutions',
-  description: 'Manage your finances with Smart Spend'
+  title: 'Nova Bank',
+  description: 'Secure online banking by Nova Bank'
 }
 
 export default function RootLayout({
@@ -35,16 +30,16 @@ export default function RootLayout({
     <html
       lang="en"
       className={cn(
-        'h-full',
-        'antialiased',
+        'h-full antialiased',
+        inter.variable,
         geistSans.variable,
         geistMono.variable,
-        bai.variable,
-        'font-sans',
-        inter.variable
+        'font-sans'
       )}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   )
 }
